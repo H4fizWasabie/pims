@@ -1,0 +1,15 @@
+[Unit]
+Description=PIMS Inventory Management
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=pims
+WorkingDirectory=/opt/pims
+EnvironmentFile=/opt/pims/pims.env
+ExecStart=/opt/pims/pims
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
