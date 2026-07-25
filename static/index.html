@@ -707,7 +707,7 @@
     api("GET", "/api/master/all").then(data => {
       LAB_MASTER_DATA = data;
       document.getElementById('lab_initLoader').style.display = 'none';
-    ).catch(err => console.error(err));
+    }).catch(err => console.error(err));
   });
 
   const lab_searchInput = document.getElementById('lab_searchInput');
@@ -1017,7 +1017,7 @@
     api("GET", "/api/master/all").then(data => {
       PHARM_MASTER_DATA = data;
       document.getElementById('pharm_initLoader').style.display = 'none';
-    ).catch(err => console.error(err));
+    }).catch(err => console.error(err));
   });
 
   const pharm_searchInput = document.getElementById('pharm_searchInput');
@@ -2248,7 +2248,7 @@
       }).catch(err => {
         alert("Extraction failed: " + err);
         setView('camera');
-      );
+      });
     };
 
     const saveRecord = (finalData) => {
@@ -2274,7 +2274,7 @@
       }).catch(err => {
         alert("Error saving: " + err.message);
         setView('review');
-      );
+      });
     };
 
     if (view === 'processing') return <LoadingScreen message="Extracting details..." />;
@@ -2594,7 +2594,7 @@
         let badgeClass = item.status === 'Surplus' ? 'analy-bg-green' : (item.status === 'Shortage' ? 'analy-bg-red' : 'analy-bg-gray');
         tbody.innerHTML += `<tr><td style="font-family:monospace;">${item.stockId}</td><td>${item.name}</td><td>${item.sysQty}</td><td>${item.phyQty}</td><td style="font-weight:bold;">${item.diff}</td><td>RM ${parseFloat(item.val).toFixed(2)}</td><td><span class="analy-status-badge ${badgeClass}">${item.status}</span></td></tr>`;
       });
-    ).catch(err => console.error(err));
+    }).catch(err => console.error(err));
   }
 
   function analy_downloadPdf() {
