@@ -60,35 +60,35 @@ func newTestServer(t *testing.T) *testServer {
 	h := &handler.Handler{DB: database, Cfg: cfg}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/pims/api/auth/login", handler.Recover(h.HandleLogin))
-	mux.HandleFunc("/pims/api/auth/logout", handler.Recover(h.HandleLogout))
-	mux.HandleFunc("/pims/api/auth/me", handler.Recover(h.HandleMe))
-	mux.HandleFunc("/pims/api/master/chunk", handler.Recover(h.HandleMasterChunk))
-	mux.HandleFunc("/pims/api/master/search", handler.Recover(h.HandleMasterSearch))
-	mux.HandleFunc("/pims/api/master/replace", handler.Recover(h.AdminMiddleware(h.HandleMasterReplace)))
-	mux.HandleFunc("/pims/api/master/all", handler.Recover(h.HandleMasterAll))
-	mux.HandleFunc("/pims/api/inventory/chunk", handler.Recover(h.HandleInventoryChunk))
-	mux.HandleFunc("/pims/api/inventory/replace", handler.Recover(h.AdminMiddleware(h.HandleInventoryReplace)))
-	mux.HandleFunc("/pims/api/indent/master-data", handler.Recover(h.HandleIndentMasterData))
-	mux.HandleFunc("/pims/api/indent/submit", handler.Recover(h.AuthMiddleware(h.HandleIndentSubmit)))
-	mux.HandleFunc("/pims/api/indent/approve", handler.Recover(h.AuthMiddleware(h.HandleIndentApprove)))
-	mux.HandleFunc("/pims/api/indent/reject", handler.Recover(h.AuthMiddleware(h.HandleIndentReject)))
-	mux.HandleFunc("/pims/api/grn/master-data", handler.Recover(h.HandleGRNMasterData))
-	mux.HandleFunc("/pims/api/grn/submit", handler.Recover(h.AuthMiddleware(h.HandleGRNSubmit)))
-	mux.HandleFunc("/pims/api/stocktake/submit", handler.Recover(h.AuthMiddleware(h.HandleStockTakeSubmit)))
-	mux.HandleFunc("/pims/api/stocktake/today", handler.Recover(h.HandleStockTakeToday))
-	mux.HandleFunc("/pims/api/disposal/search", handler.Recover(h.HandleDisposalSearch))
-	mux.HandleFunc("/pims/api/disposal/submit", handler.Recover(h.AuthMiddleware(h.HandleDisposalSubmit)))
-	mux.HandleFunc("/pims/api/analysis/run", handler.Recover(h.HandleAnalysisRun))
-	mux.HandleFunc("/pims/api/analysis/today", handler.Recover(h.HandleAnalysisToday))
-	mux.HandleFunc("/pims/api/expiry/list", handler.Recover(h.HandleExpiryList))
-	mux.HandleFunc("/pims/api/expiry/update-remark", handler.Recover(h.AuthMiddleware(h.HandleExpiryUpdateRemark)))
-	mux.HandleFunc("/pims/api/spec/submit", handler.Recover(h.AuthMiddleware(h.HandleSpecSubmit)))
-	mux.HandleFunc("/pims/api/spec/approve", handler.Recover(h.AuthMiddleware(h.HandleSpecApprove)))
-	mux.HandleFunc("/pims/api/spec/reject", handler.Recover(h.AuthMiddleware(h.HandleSpecReject)))
-	mux.HandleFunc("/pims/api/dashboard/summary", handler.Recover(h.HandleDashboardSummary))
-	mux.HandleFunc("/pims/api/order/prf-number", handler.Recover(h.AuthMiddleware(h.HandleOrderPRFNumber)))
-	mux.HandleFunc("/pims/api/order/generate", handler.Recover(h.AuthMiddleware(h.HandleOrderGenerate)))
+	mux.HandleFunc("/api/auth/login", handler.Recover(h.HandleLogin))
+	mux.HandleFunc("/api/auth/logout", handler.Recover(h.HandleLogout))
+	mux.HandleFunc("/api/auth/me", handler.Recover(h.HandleMe))
+	mux.HandleFunc("/api/master/chunk", handler.Recover(h.HandleMasterChunk))
+	mux.HandleFunc("/api/master/search", handler.Recover(h.HandleMasterSearch))
+	mux.HandleFunc("/api/master/replace", handler.Recover(h.AdminMiddleware(h.HandleMasterReplace)))
+	mux.HandleFunc("/api/master/all", handler.Recover(h.HandleMasterAll))
+	mux.HandleFunc("/api/inventory/chunk", handler.Recover(h.HandleInventoryChunk))
+	mux.HandleFunc("/api/inventory/replace", handler.Recover(h.AdminMiddleware(h.HandleInventoryReplace)))
+	mux.HandleFunc("/api/indent/master-data", handler.Recover(h.HandleIndentMasterData))
+	mux.HandleFunc("/api/indent/submit", handler.Recover(h.AuthMiddleware(h.HandleIndentSubmit)))
+	mux.HandleFunc("/api/indent/approve", handler.Recover(h.AuthMiddleware(h.HandleIndentApprove)))
+	mux.HandleFunc("/api/indent/reject", handler.Recover(h.AuthMiddleware(h.HandleIndentReject)))
+	mux.HandleFunc("/api/grn/master-data", handler.Recover(h.HandleGRNMasterData))
+	mux.HandleFunc("/api/grn/submit", handler.Recover(h.AuthMiddleware(h.HandleGRNSubmit)))
+	mux.HandleFunc("/api/stocktake/submit", handler.Recover(h.AuthMiddleware(h.HandleStockTakeSubmit)))
+	mux.HandleFunc("/api/stocktake/today", handler.Recover(h.HandleStockTakeToday))
+	mux.HandleFunc("/api/disposal/search", handler.Recover(h.HandleDisposalSearch))
+	mux.HandleFunc("/api/disposal/submit", handler.Recover(h.AuthMiddleware(h.HandleDisposalSubmit)))
+	mux.HandleFunc("/api/analysis/run", handler.Recover(h.HandleAnalysisRun))
+	mux.HandleFunc("/api/analysis/today", handler.Recover(h.HandleAnalysisToday))
+	mux.HandleFunc("/api/expiry/list", handler.Recover(h.HandleExpiryList))
+	mux.HandleFunc("/api/expiry/update-remark", handler.Recover(h.AuthMiddleware(h.HandleExpiryUpdateRemark)))
+	mux.HandleFunc("/api/spec/submit", handler.Recover(h.AuthMiddleware(h.HandleSpecSubmit)))
+	mux.HandleFunc("/api/spec/approve", handler.Recover(h.AuthMiddleware(h.HandleSpecApprove)))
+	mux.HandleFunc("/api/spec/reject", handler.Recover(h.AuthMiddleware(h.HandleSpecReject)))
+	mux.HandleFunc("/api/dashboard/summary", handler.Recover(h.HandleDashboardSummary))
+	mux.HandleFunc("/api/order/prf-number", handler.Recover(h.AuthMiddleware(h.HandleOrderPRFNumber)))
+	mux.HandleFunc("/api/order/generate", handler.Recover(h.AuthMiddleware(h.HandleOrderGenerate)))
 
 	ts := httptest.NewServer(mux)
 	return &testServer{Server: ts, db: database, cfg: cfg}
@@ -97,7 +97,7 @@ func newTestServer(t *testing.T) *testServer {
 func (ts *testServer) login(t *testing.T, email, password string) string {
 	t.Helper()
 	body, _ := JSON(map[string]string{"email": email, "password": password})
-	resp := ts.post("/pims/api/auth/login", body, "")
+	resp := ts.post("/api/auth/login", body, "")
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
@@ -193,19 +193,19 @@ func TestAuthLogin(t *testing.T) {
 	cookie := ts.login(t, "admin@pims.local", "admin123")
 
 	// Verify session
-	resp := ts.get("/pims/api/auth/me", cookie)
+	resp := ts.get("/api/auth/me", cookie)
 	assertStatus(t, resp, 200)
 	assertJSONKey(t, resp, "email", "admin@pims.local")
 	assertJSONKey(t, resp, "role", "admin")
 
 	// Bad login
-	resp = ts.post("/pims/api/auth/login", mustJSON(t, map[string]string{
+	resp = ts.post("/api/auth/login", mustJSON(t, map[string]string{
 		"email": "admin@pims.local", "password": "wrong",
 	}), "")
 	assertStatus(t, resp, 401)
 
 	// Logout
-	resp = ts.post("/pims/api/auth/logout", "", cookie)
+	resp = ts.post("/api/auth/logout", "", cookie)
 	assertStatus(t, resp, 200)
 }
 
@@ -221,20 +221,20 @@ func TestMasterItems(t *testing.T) {
 		{"STK001", "Paracetamol 500mg", "TAB", "Pharmacy", "0.50", "MedSupply Co", "Available"},
 		{"STK002", "Syringe 5ml", "PCS", "Lab", "0.25", "LabEquip Ltd", "Available"},
 	}
-	resp := ts.post("/pims/api/master/replace", mustJSON(t, data), cookie)
+	resp := ts.post("/api/master/replace", mustJSON(t, data), cookie)
 	assertSuccess(t, resp)
 
 	// Get all
-	resp = ts.get("/pims/api/master/all", cookie)
+	resp = ts.get("/api/master/all", cookie)
 	assertStatus(t, resp, 200)
 	assertJSONKey(t, resp, "0", nil) // just check it returns array
 
 	// Search
-	resp = ts.get("/pims/api/master/search?q=para", cookie)
+	resp = ts.get("/api/master/search?q=para", cookie)
 	assertStatus(t, resp, 200)
 
 	// Pagination
-	resp = ts.get("/pims/api/master/chunk?page=0&pageSize=10", cookie)
+	resp = ts.get("/api/master/chunk?page=0&pageSize=10", cookie)
 	assertStatus(t, resp, 200)
 }
 
@@ -249,17 +249,17 @@ func TestInventoryReplace(t *testing.T) {
 	data := [][]string{
 		{"STK001", "Item A", "TAB", "G1", "1.00", "Sup1", "Available"},
 	}
-	ts.post("/pims/api/master/replace", mustJSON(t, data), cookie)
+	ts.post("/api/master/replace", mustJSON(t, data), cookie)
 
 	// Replace inventory
 	invData := [][]string{
 		{"STK001", "Item A", "50"},
 	}
-	resp := ts.post("/pims/api/inventory/replace", mustJSON(t, invData), cookie)
+	resp := ts.post("/api/inventory/replace", mustJSON(t, invData), cookie)
 	assertSuccess(t, resp)
 
 	// Get chunk
-	resp = ts.get("/pims/api/inventory/chunk?page=0&pageSize=10", cookie)
+	resp = ts.get("/api/inventory/chunk?page=0&pageSize=10", cookie)
 	assertStatus(t, resp, 200)
 }
 
@@ -272,8 +272,8 @@ func TestIndentSubmitAndApprove(t *testing.T) {
 
 	// Setup: add master items and inventory
 	master := [][]string{{"STK001", "Item X", "BOX", "G1", "5.00", "Sup1", "Available"}}
-	ts.post("/pims/api/master/replace", mustJSON(t, master), cookie)
-	ts.post("/pims/api/inventory/replace", mustJSON(t, [][]string{{"STK001", "Item X", "100"}}), cookie)
+	ts.post("/api/master/replace", mustJSON(t, master), cookie)
+	ts.post("/api/inventory/replace", mustJSON(t, [][]string{{"STK001", "Item X", "100"}}), cookie)
 
 	// Submit indent
 	indent := map[string]any{
@@ -282,7 +282,7 @@ func TestIndentSubmitAndApprove(t *testing.T) {
 			{"itemName": "Item X", "stockId": "STK001", "uom": "BOX", "reqQty": 10},
 		},
 	}
-	resp := ts.post("/pims/api/indent/submit", mustJSON(t, indent), cookie)
+	resp := ts.post("/api/indent/submit", mustJSON(t, indent), cookie)
 	assertSuccess(t, resp)
 
 	// Get the indent row ID from DB
@@ -299,7 +299,7 @@ func TestIndentSubmitAndApprove(t *testing.T) {
 		"stockId":        "STK001",
 		"reqQty":         10,
 	}
-	resp = ts.post("/pims/api/indent/approve", mustJSON(t, approve), cookie)
+	resp = ts.post("/api/indent/approve", mustJSON(t, approve), cookie)
 	assertSuccess(t, resp)
 
 	// Verify stock deducted
@@ -319,7 +319,7 @@ func TestGRNSubmit(t *testing.T) {
 
 	// Setup master items
 	master := [][]string{{"STK001", "Item X", "BOX", "G1", "5.00", "Sup1", "Available"}}
-	ts.post("/pims/api/master/replace", mustJSON(t, master), cookie)
+	ts.post("/api/master/replace", mustJSON(t, master), cookie)
 
 	// Submit GRN
 	grn := map[string]any{
@@ -332,11 +332,11 @@ func TestGRNSubmit(t *testing.T) {
 			{"itemName": "Item X", "qtyPo": 10, "qtyDo": 10, "qtyInv": 10, "uom": "BOX", "batch": "B001", "status": "Match", "remarks": ""},
 		},
 	}
-	resp := ts.post("/pims/api/grn/submit", mustJSON(t, grn), cookie)
+	resp := ts.post("/api/grn/submit", mustJSON(t, grn), cookie)
 	assertSuccess(t, resp)
 
 	// Double entry check
-	resp = ts.post("/pims/api/grn/submit", mustJSON(t, grn), cookie)
+	resp = ts.post("/api/grn/submit", mustJSON(t, grn), cookie)
 	assertStatus(t, resp, 409) // conflict
 }
 
@@ -358,11 +358,11 @@ func TestStockTake(t *testing.T) {
 		"batch":    "B001",
 		"expiry":   "01/12/2026",
 	}
-	resp := ts.post("/pims/api/stocktake/submit", mustJSON(t, entry), cookie)
+	resp := ts.post("/api/stocktake/submit", mustJSON(t, entry), cookie)
 	assertSuccess(t, resp)
 
 	// Get today
-	resp = ts.get("/pims/api/stocktake/today", cookie)
+	resp = ts.get("/api/stocktake/today", cookie)
 	assertStatus(t, resp, 200)
 }
 
@@ -375,8 +375,8 @@ func TestDisposal(t *testing.T) {
 
 	// Setup
 	master := [][]string{{"STK001", "Item X", "BOX", "G1", "5.00", "Sup1", "Available"}}
-	ts.post("/pims/api/master/replace", mustJSON(t, master), cookie)
-	ts.post("/pims/api/inventory/replace", mustJSON(t, [][]string{{"STK001", "Item X", "50"}}), cookie)
+	ts.post("/api/master/replace", mustJSON(t, master), cookie)
+	ts.post("/api/inventory/replace", mustJSON(t, [][]string{{"STK001", "Item X", "50"}}), cookie)
 
 	// Also add expiry tracking so disposal search works
 	ts.db.Exec(`INSERT INTO expiry_tracking (stock_id, item_name, batch_no, expiry_date, uom)
@@ -384,7 +384,7 @@ func TestDisposal(t *testing.T) {
 		ON CONFLICT (stock_id, batch_no) DO NOTHING`)
 
 	// Search
-	resp := ts.get("/pims/api/disposal/search?q=B001", cookie)
+	resp := ts.get("/api/disposal/search?q=B001", cookie)
 	assertStatus(t, resp, 200)
 
 	// Submit disposal
@@ -397,7 +397,7 @@ func TestDisposal(t *testing.T) {
 		"batch":    "B001",
 		"cost":     5.00,
 	}
-	resp = ts.post("/pims/api/disposal/submit", mustJSON(t, disposal), cookie)
+	resp = ts.post("/api/disposal/submit", mustJSON(t, disposal), cookie)
 	assertSuccess(t, resp)
 
 	// Verify stock deducted
@@ -420,12 +420,12 @@ func TestExpiryList(t *testing.T) {
 		VALUES ('STK001', 'Test Item', 'B001', CURRENT_DATE + 30, 'BOX')
 		ON CONFLICT (stock_id, batch_no) DO NOTHING`)
 
-	resp := ts.get("/pims/api/expiry/list?page=1&pageSize=20", cookie)
+	resp := ts.get("/api/expiry/list?page=1&pageSize=20", cookie)
 	assertStatus(t, resp, 200)
 
 	// Update remark
 	remark := map[string]any{"rowIndex": 1, "remark": "Test remark"}
-	resp = ts.post("/pims/api/expiry/update-remark", mustJSON(t, remark), cookie)
+	resp = ts.post("/api/expiry/update-remark", mustJSON(t, remark), cookie)
 	assertSuccess(t, resp)
 }
 
@@ -444,7 +444,7 @@ func TestSpecRequest(t *testing.T) {
 		"estCost":       10.00,
 		"justification": "Needed for testing",
 	}
-	resp := ts.post("/pims/api/spec/submit", mustJSON(t, spec), cookie)
+	resp := ts.post("/api/spec/submit", mustJSON(t, spec), cookie)
 	assertSuccess(t, resp)
 
 	// Get the row ID
@@ -453,7 +453,7 @@ func TestSpecRequest(t *testing.T) {
 
 	// Approve (admin is also spec approver in test config)
 	approve := map[string]any{"rowIndex": specID}
-	resp = ts.post("/pims/api/spec/approve", mustJSON(t, approve), cookie)
+	resp = ts.post("/api/spec/approve", mustJSON(t, approve), cookie)
 	assertSuccess(t, resp)
 }
 
@@ -464,7 +464,7 @@ func TestDashboard(t *testing.T) {
 
 	cookie := ts.login(t, "admin@pims.local", "admin123")
 
-	resp := ts.get("/pims/api/dashboard/summary", cookie)
+	resp := ts.get("/api/dashboard/summary", cookie)
 	assertStatus(t, resp, 200)
 }
 
@@ -475,7 +475,7 @@ func TestOrderPRF(t *testing.T) {
 
 	cookie := ts.login(t, "admin@pims.local", "admin123")
 
-	resp := ts.get("/pims/api/order/prf-number", cookie)
+	resp := ts.get("/api/order/prf-number", cookie)
 	assertStatus(t, resp, 200)
 	assertJSONKey(t, resp, "prfNo", nil) // just check key exists
 
@@ -486,7 +486,7 @@ func TestOrderPRF(t *testing.T) {
 			{"stockId": "STK001", "itemName": "Item", "uom": "BOX", "cost": 5.0, "qty": 10, "supplier": "Sup1", "reason": "test"},
 		},
 	}
-	resp = ts.post("/pims/api/order/generate", mustJSON(t, orderData), cookie)
+	resp = ts.post("/api/order/generate", mustJSON(t, orderData), cookie)
 	assertSuccess(t, resp)
 }
 
@@ -501,10 +501,10 @@ func TestAnalysis(t *testing.T) {
 	ts.db.Exec(`INSERT INTO stock_takes (take_date, location, stock_id, item_name, physical_qty)
 		VALUES (CURRENT_DATE, 'Test', 'STK001', 'Item', 10)`)
 
-	resp := ts.post("/pims/api/analysis/run", "", cookie)
+	resp := ts.post("/api/analysis/run", "", cookie)
 	assertStatus(t, resp, 200)
 
-	resp = ts.get("/pims/api/analysis/today", cookie)
+	resp = ts.get("/api/analysis/today", cookie)
 	assertStatus(t, resp, 200)
 }
 
@@ -529,10 +529,10 @@ func TestUnauthorizedAccess(t *testing.T) {
 	defer ts.db.Close()
 
 	// No auth
-	resp := ts.get("/pims/api/dashboard/summary", "")
+	resp := ts.get("/api/dashboard/summary", "")
 	assertStatus(t, resp, 401)
 
-	resp = ts.post("/pims/api/indent/submit", `{}`, "")
+	resp = ts.post("/api/indent/submit", `{}`, "")
 	assertStatus(t, resp, 401)
 
 	// Non-admin trying admin endpoint
@@ -541,7 +541,7 @@ func TestUnauthorizedAccess(t *testing.T) {
 	userCookie := ts.login(t, "user@test.com", "admin123")
 
 	// Master replace requires admin
-	resp = ts.post("/pims/api/master/replace", `[]`, userCookie)
+	resp = ts.post("/api/master/replace", `[]`, userCookie)
 	assertStatus(t, resp, 403)
 
 	// Cleanup

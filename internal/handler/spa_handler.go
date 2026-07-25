@@ -7,7 +7,7 @@ import (
 )
 
 func (h *Handler) HandleSPA(w http.ResponseWriter, r *http.Request) {
-	path := strings.TrimPrefix(r.URL.Path, "/pims/")
+	path := strings.TrimPrefix(r.URL.Path, "/")
 	if path == "" || path == "/" {
 		path = "index.html"
 	}

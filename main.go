@@ -33,61 +33,61 @@ func main() {
 	mux := http.NewServeMux()
 
 	// Auth
-	mux.HandleFunc("/pims/api/auth/login", handler.Recover(h.HandleLogin))
-	mux.HandleFunc("/pims/api/auth/logout", handler.Recover(h.HandleLogout))
-	mux.HandleFunc("/pims/api/auth/me", handler.Recover(h.HandleMe))
+	mux.HandleFunc("/api/auth/login", handler.Recover(h.HandleLogin))
+	mux.HandleFunc("/api/auth/logout", handler.Recover(h.HandleLogout))
+	mux.HandleFunc("/api/auth/me", handler.Recover(h.HandleMe))
 
 	// Master
-	mux.HandleFunc("/pims/api/master/chunk", handler.Recover(h.HandleMasterChunk))
-	mux.HandleFunc("/pims/api/master/search", handler.Recover(h.HandleMasterSearch))
-	mux.HandleFunc("/pims/api/master/replace", handler.Recover(h.AdminMiddleware(h.HandleMasterReplace)))
-	mux.HandleFunc("/pims/api/master/all", handler.Recover(h.HandleMasterAll))
+	mux.HandleFunc("/api/master/chunk", handler.Recover(h.HandleMasterChunk))
+	mux.HandleFunc("/api/master/search", handler.Recover(h.HandleMasterSearch))
+	mux.HandleFunc("/api/master/replace", handler.Recover(h.AdminMiddleware(h.HandleMasterReplace)))
+	mux.HandleFunc("/api/master/all", handler.Recover(h.HandleMasterAll))
 
 	// Inventory
-	mux.HandleFunc("/pims/api/inventory/chunk", handler.Recover(h.HandleInventoryChunk))
-	mux.HandleFunc("/pims/api/inventory/replace", handler.Recover(h.AdminMiddleware(h.HandleInventoryReplace)))
+	mux.HandleFunc("/api/inventory/chunk", handler.Recover(h.HandleInventoryChunk))
+	mux.HandleFunc("/api/inventory/replace", handler.Recover(h.AdminMiddleware(h.HandleInventoryReplace)))
 
 	// Indents
-	mux.HandleFunc("/pims/api/indent/master-data", handler.Recover(h.HandleIndentMasterData))
-	mux.HandleFunc("/pims/api/indent/submit", handler.Recover(h.AuthMiddleware(h.HandleIndentSubmit)))
-	mux.HandleFunc("/pims/api/indent/approve", handler.Recover(h.AuthMiddleware(h.HandleIndentApprove)))
-	mux.HandleFunc("/pims/api/indent/reject", handler.Recover(h.AuthMiddleware(h.HandleIndentReject)))
+	mux.HandleFunc("/api/indent/master-data", handler.Recover(h.HandleIndentMasterData))
+	mux.HandleFunc("/api/indent/submit", handler.Recover(h.AuthMiddleware(h.HandleIndentSubmit)))
+	mux.HandleFunc("/api/indent/approve", handler.Recover(h.AuthMiddleware(h.HandleIndentApprove)))
+	mux.HandleFunc("/api/indent/reject", handler.Recover(h.AuthMiddleware(h.HandleIndentReject)))
 
 	// GRN
-	mux.HandleFunc("/pims/api/grn/master-data", handler.Recover(h.HandleGRNMasterData))
-	mux.HandleFunc("/pims/api/grn/submit", handler.Recover(h.AuthMiddleware(h.HandleGRNSubmit)))
+	mux.HandleFunc("/api/grn/master-data", handler.Recover(h.HandleGRNMasterData))
+	mux.HandleFunc("/api/grn/submit", handler.Recover(h.AuthMiddleware(h.HandleGRNSubmit)))
 
 	// Stock Take
-	mux.HandleFunc("/pims/api/stocktake/submit", handler.Recover(h.AuthMiddleware(h.HandleStockTakeSubmit)))
-	mux.HandleFunc("/pims/api/stocktake/today", handler.Recover(h.HandleStockTakeToday))
-	mux.HandleFunc("/pims/api/stocktake/analyze-image", handler.Recover(h.AuthMiddleware(h.HandleStockTakeAnalyzeImage)))
+	mux.HandleFunc("/api/stocktake/submit", handler.Recover(h.AuthMiddleware(h.HandleStockTakeSubmit)))
+	mux.HandleFunc("/api/stocktake/today", handler.Recover(h.HandleStockTakeToday))
+	mux.HandleFunc("/api/stocktake/analyze-image", handler.Recover(h.AuthMiddleware(h.HandleStockTakeAnalyzeImage)))
 
 	// Disposal
-	mux.HandleFunc("/pims/api/disposal/search", handler.Recover(h.HandleDisposalSearch))
-	mux.HandleFunc("/pims/api/disposal/submit", handler.Recover(h.AuthMiddleware(h.HandleDisposalSubmit)))
+	mux.HandleFunc("/api/disposal/search", handler.Recover(h.HandleDisposalSearch))
+	mux.HandleFunc("/api/disposal/submit", handler.Recover(h.AuthMiddleware(h.HandleDisposalSubmit)))
 
 	// Analysis
-	mux.HandleFunc("/pims/api/analysis/run", handler.Recover(h.HandleAnalysisRun))
-	mux.HandleFunc("/pims/api/analysis/today", handler.Recover(h.HandleAnalysisToday))
+	mux.HandleFunc("/api/analysis/run", handler.Recover(h.HandleAnalysisRun))
+	mux.HandleFunc("/api/analysis/today", handler.Recover(h.HandleAnalysisToday))
 
 	// Expiry
-	mux.HandleFunc("/pims/api/expiry/list", handler.Recover(h.HandleExpiryList))
-	mux.HandleFunc("/pims/api/expiry/update-remark", handler.Recover(h.AuthMiddleware(h.HandleExpiryUpdateRemark)))
+	mux.HandleFunc("/api/expiry/list", handler.Recover(h.HandleExpiryList))
+	mux.HandleFunc("/api/expiry/update-remark", handler.Recover(h.AuthMiddleware(h.HandleExpiryUpdateRemark)))
 
 	// Specs
-	mux.HandleFunc("/pims/api/spec/submit", handler.Recover(h.AuthMiddleware(h.HandleSpecSubmit)))
-	mux.HandleFunc("/pims/api/spec/approve", handler.Recover(h.AuthMiddleware(h.HandleSpecApprove)))
-	mux.HandleFunc("/pims/api/spec/reject", handler.Recover(h.AuthMiddleware(h.HandleSpecReject)))
+	mux.HandleFunc("/api/spec/submit", handler.Recover(h.AuthMiddleware(h.HandleSpecSubmit)))
+	mux.HandleFunc("/api/spec/approve", handler.Recover(h.AuthMiddleware(h.HandleSpecApprove)))
+	mux.HandleFunc("/api/spec/reject", handler.Recover(h.AuthMiddleware(h.HandleSpecReject)))
 
 	// Dashboard
-	mux.HandleFunc("/pims/api/dashboard/summary", handler.Recover(h.HandleDashboardSummary))
+	mux.HandleFunc("/api/dashboard/summary", handler.Recover(h.HandleDashboardSummary))
 
 	// Order
-	mux.HandleFunc("/pims/api/order/prf-number", handler.Recover(h.AuthMiddleware(h.HandleOrderPRFNumber)))
-	mux.HandleFunc("/pims/api/order/generate", handler.Recover(h.AuthMiddleware(h.HandleOrderGenerate)))
+	mux.HandleFunc("/api/order/prf-number", handler.Recover(h.AuthMiddleware(h.HandleOrderPRFNumber)))
+	mux.HandleFunc("/api/order/generate", handler.Recover(h.AuthMiddleware(h.HandleOrderGenerate)))
 
 	// SPA
-	mux.HandleFunc("/pims/", handler.Recover(h.HandleSPA))
+	mux.HandleFunc("/", handler.Recover(h.HandleSPA))
 
 	addr := ":" + cfg.Port
 	log.Printf("PIMS starting on %s", addr)

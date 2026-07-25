@@ -2937,7 +2937,7 @@
 function api(method, path, body) {
   var opts = { method: method, headers: { 'Content-Type': 'application/json' } };
   if (body) opts.body = JSON.stringify(body);
-  return fetch('/pims' + path, opts).then(function(r) { return r.json(); });
+  return fetch(path, opts).then(function(r) { return r.json(); });
 }
 
 // SPA switching
