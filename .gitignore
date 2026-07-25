@@ -1,0 +1,9 @@
+# Reference GAS source (contains API keys in Config)
+PIMS GAS/
+
+# Binary
+pims
+
+# Environment
+*.env
+!*.env.example
