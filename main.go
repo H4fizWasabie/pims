@@ -6,6 +6,7 @@ import (
 
 	"github.com/H4fizWasabie/pims/internal/config"
 	"github.com/H4fizWasabie/pims/internal/db"
+	"github.com/H4fizWasabie/pims/internal/handler"
 )
 
 func main() {
@@ -21,7 +22,15 @@ func main() {
 		log.Fatalf("migrate: %v", err)
 	}
 
+	h := &handler.Handler{DB: database, Cfg: cfg}
+
 	mux := http.NewServeMux()
+
+	// Auth routes
+	mux.HandleFunc("/pims/api/auth/login", handler.Recover(h.HandleLogin))
+	mux.HandleFunc("/pims/api/auth/logout", handler.Recover(h.HandleLogout))
+	mux.HandleFunc("/pims/api/auth/me", handler.Recover(h.HandleMe))
+
 	mux.HandleFunc("/pims/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("PIMS API - coming soon"))
 	})
