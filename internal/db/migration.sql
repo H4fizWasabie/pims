@@ -149,7 +149,7 @@ CREATE TABLE IF NOT EXISTS id_counters (
 -- Default admin user (password: admin123)
 -- bcrypt hash for 'admin123'
 INSERT INTO users (email, password_hash, role)
-VALUES ('admin@pims.local', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'admin')
+VALUES ('admin@pims.local', '$2a$10$nXrtCI3rOJSiycc3unq0w.rEnlt7CIzUpy/zqofVmq1Fni6RQUpRW', 'admin')
 ON CONFLICT (email) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS system_logs (
