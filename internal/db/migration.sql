@@ -151,3 +151,12 @@ CREATE TABLE IF NOT EXISTS id_counters (
 INSERT INTO users (email, password_hash, role)
 VALUES ('admin@pims.local', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'admin')
 ON CONFLICT (email) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS system_logs (
+    id SERIAL PRIMARY KEY,
+    timestamp TIMESTAMPTZ DEFAULT NOW(),
+    log_type TEXT NOT NULL DEFAULT 'INFO',
+    message TEXT NOT NULL,
+    user_email TEXT DEFAULT '',
+    stack_trace TEXT DEFAULT ''
+);
