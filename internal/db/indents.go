@@ -10,7 +10,7 @@ type IndentItem struct {
 	ItemName string  `json:"itemName"`
 	StockID  string  `json:"stockId"`
 	UOM      string  `json:"uom"`
-	Qty      float64 `json:"qty"`
+	Qty      float64 `json:"reqQty"`
 }
 
 func GetIndentMasterData(d *sql.DB) ([]map[string]any, error) {

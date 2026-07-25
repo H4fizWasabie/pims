@@ -88,6 +88,7 @@ func newTestServer(t *testing.T) *testServer {
 	mux.HandleFunc("/pims/api/spec/reject", handler.Recover(h.AuthMiddleware(h.HandleSpecReject)))
 	mux.HandleFunc("/pims/api/dashboard/summary", handler.Recover(h.HandleDashboardSummary))
 	mux.HandleFunc("/pims/api/order/prf-number", handler.Recover(h.AuthMiddleware(h.HandleOrderPRFNumber)))
+	mux.HandleFunc("/pims/api/order/generate", handler.Recover(h.AuthMiddleware(h.HandleOrderGenerate)))
 
 	ts := httptest.NewServer(mux)
 	return &testServer{Server: ts, db: database, cfg: cfg}
@@ -278,7 +279,7 @@ func TestIndentSubmitAndApprove(t *testing.T) {
 	indent := map[string]any{
 		"requester": "Lab",
 		"items": []map[string]any{
-			{"itemName": "Item X", "stockId": "STK001", "uom": "BOX", "qty": 10},
+			{"itemName": "Item X", "stockId": "STK001", "uom": "BOX", "reqQty": 10},
 		},
 	}
 	resp := ts.post("/pims/api/indent/submit", mustJSON(t, indent), cookie)
@@ -438,9 +439,9 @@ func TestSpecRequest(t *testing.T) {
 	// Submit spec
 	spec := map[string]any{
 		"itemName":      "New Test Item",
-		"itemGroup":     "Pharmacy",
+		"category":      "Pharmacy",
 		"uom":           "BOX",
-		"cost":          10.00,
+		"estCost":       10.00,
 		"justification": "Needed for testing",
 	}
 	resp := ts.post("/pims/api/spec/submit", mustJSON(t, spec), cookie)
@@ -477,6 +478,16 @@ func TestOrderPRF(t *testing.T) {
 	resp := ts.get("/pims/api/order/prf-number", cookie)
 	assertStatus(t, resp, 200)
 	assertJSONKey(t, resp, "prfNo", nil) // just check key exists
+
+	// Test order generate (PDF deferred, returns PRF number)
+	orderData := map[string]any{
+		"department": "Lab",
+		"items": []map[string]any{
+			{"stockId": "STK001", "itemName": "Item", "uom": "BOX", "cost": 5.0, "qty": 10, "supplier": "Sup1", "reason": "test"},
+		},
+	}
+	resp = ts.post("/pims/api/order/generate", mustJSON(t, orderData), cookie)
+	assertSuccess(t, resp)
 }
 
 func TestAnalysis(t *testing.T) {

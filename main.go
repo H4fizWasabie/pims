@@ -84,6 +84,7 @@ func main() {
 
 	// Order
 	mux.HandleFunc("/pims/api/order/prf-number", handler.Recover(h.AuthMiddleware(h.HandleOrderPRFNumber)))
+	mux.HandleFunc("/pims/api/order/generate", handler.Recover(h.AuthMiddleware(h.HandleOrderGenerate)))
 
 	// SPA
 	mux.HandleFunc("/pims/", handler.Recover(h.HandleSPA))

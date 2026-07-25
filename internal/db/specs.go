@@ -10,9 +10,9 @@ type SpecRequest struct {
 	ReqID         string  `json:"reqId"`
 	Requester     string  `json:"requester"`
 	ItemName      string  `json:"itemName"`
-	ItemGroup     string  `json:"itemGroup"`
+	ItemGroup     string  `json:"category"`
 	UOM           string  `json:"uom"`
-	Cost          float64 `json:"cost"`
+	Cost          float64 `json:"estCost"`
 	Justification string  `json:"justification"`
 }
 
