@@ -36,7 +36,10 @@ type PendingSpec struct {
 }
 
 func GetDashboardSummary(d *sql.DB) (*DashboardSummary, error) {
-	s := &DashboardSummary{}
+	s := &DashboardSummary{
+		PendingIndents: []PendingIndent{},
+		PendingSpecs:   []PendingSpec{},
+	}
 
 	d.QueryRow(`SELECT COUNT(*) FROM inventory`).Scan(&s.Stats.TotalItems)
 	d.QueryRow(`SELECT COUNT(*) FROM inventory WHERE current_stock < 10`).Scan(&s.Stats.LowStock)

@@ -33,7 +33,7 @@ func GetExpiryList(d *sql.DB, page, pageSize int) ([]ExpiryItem, error) {
 	}
 	defer rows.Close()
 
-	var items []ExpiryItem
+	items := make([]ExpiryItem, 0)
 	today := time.Now()
 	for rows.Next() {
 		var it ExpiryItem

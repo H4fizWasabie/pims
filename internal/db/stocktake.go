@@ -56,3 +56,65 @@ func GetTodayStockTake(d *sql.DB) ([]StockTakeRow, error) {
 	}
 	return items, rows.Err()
 }
+
+var locationGroups = map[string][]string{
+	"pharmacy":    {"Pharmacy Level 1", "Mini Pharmacy Level 3"},
+	"lab":         {"Lab Level 1", "Lab Level 2"},
+	"medicalward": {"Store Level 2", "Physiotherapy room"},
+}
+
+type StockTakeHistoryRow struct {
+	ItemName   string  `json:"itemName"`
+	ExpiryDate string  `json:"expiryDate"`
+	Qty        float64 `json:"qty"`
+	Location   string  `json:"location"`
+	ScannedAt  string  `json:"scannedAt"`
+}
+
+func GetStockTakeHistory(d *sql.DB, group, dateFrom, dateTo string) ([]StockTakeHistoryRow, error) {
+	query := `SELECT item_name, expiry_date, physical_qty, location,
+		COALESCE(to_char(timestamp, 'YYYY-MM-DD HH24:MI:SS'), '')
+	 FROM stock_takes WHERE 1=1`
+	args := []interface{}{}
+	argIdx := 1
+
+	if locs, ok := locationGroups[group]; ok && len(locs) > 0 {
+		query += " AND location IN ("
+		for i, loc := range locs {
+			if i > 0 {
+				query += ", "
+			}
+			query += "$" + itoa(argIdx)
+			args = append(args, loc)
+			argIdx++
+		}
+		query += ")"
+	}
+	if dateFrom != "" {
+		query += " AND take_date >= $" + itoa(argIdx)
+		args = append(args, dateFrom)
+		argIdx++
+	}
+	if dateTo != "" {
+		query += " AND take_date <= $" + itoa(argIdx)
+		args = append(args, dateTo)
+		argIdx++
+	}
+	query += " ORDER BY timestamp DESC LIMIT 500"
+
+	rows, err := d.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]StockTakeHistoryRow, 0)
+	for rows.Next() {
+		var r StockTakeHistoryRow
+		if err := rows.Scan(&r.ItemName, &r.ExpiryDate, &r.Qty, &r.Location, &r.ScannedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, r)
+	}
+	return items, rows.Err()
+}

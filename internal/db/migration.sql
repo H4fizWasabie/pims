@@ -160,3 +160,23 @@ CREATE TABLE IF NOT EXISTS system_logs (
     user_email TEXT DEFAULT '',
     stack_trace TEXT DEFAULT ''
 );
+
+CREATE TABLE IF NOT EXISTS orders (
+    id SERIAL PRIMARY KEY,
+    prf_no TEXT NOT NULL,
+    department TEXT NOT NULL,
+    item_name TEXT NOT NULL,
+    stock_id TEXT DEFAULT '',
+    uom TEXT DEFAULT '',
+    qty NUMERIC(12,2) DEFAULT 0,
+    unit_cost NUMERIC(12,2) DEFAULT 0,
+    total_cost NUMERIC(12,2) DEFAULT 0,
+    reason TEXT DEFAULT '',
+    ordered_at TIMESTAMPTZ DEFAULT NOW(),
+    order_tick_at TIMESTAMPTZ,
+    payment_tick_at TIMESTAMPTZ,
+    received_tick_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_orders_department ON orders(department);
+CREATE INDEX IF NOT EXISTS idx_orders_prf_no ON orders(prf_no);

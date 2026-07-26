@@ -50,6 +50,16 @@ type ocrRequest struct {
 	Images []string `json:"images"`
 }
 
+func (h *Handler) HandleStockTakeHistory(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	items, err := db.GetStockTakeHistory(h.DB, q.Get("group"), q.Get("dateFrom"), q.Get("dateTo"))
+	if err != nil {
+		h.Error(w, 500, "Server Error: "+err.Error())
+		return
+	}
+	h.JSON(w, 200, items)
+}
+
 func (h *Handler) HandleStockTakeAnalyzeImage(w http.ResponseWriter, r *http.Request) {
 	var req ocrRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

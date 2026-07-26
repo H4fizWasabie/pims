@@ -79,3 +79,48 @@ func randomToken(n int) string {
 	rand.Read(b)
 	return hex.EncodeToString(b)
 }
+
+type UserRow struct {
+	ID        int    `json:"id"`
+	Email     string `json:"email"`
+	Role      string `json:"role"`
+	CreatedAt string `json:"createdAt"`
+}
+
+func ListUsers(d *sql.DB) ([]UserRow, error) {
+	rows, err := d.Query(`SELECT id, email, role, COALESCE(to_char(created_at, 'YYYY-MM-DD HH24:MI'), '') FROM users ORDER BY id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	users := make([]UserRow, 0)
+	for rows.Next() {
+		var u UserRow
+		if err := rows.Scan(&u.ID, &u.Email, &u.Role, &u.CreatedAt); err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+	return users, rows.Err()
+}
+
+func DeleteUser(d *sql.DB, id int) error {
+	_, err := d.Exec(`DELETE FROM users WHERE id = $1`, id)
+	return err
+}
+
+func ChangePassword(d *sql.DB, email, oldPass, newPass string) error {
+	u, err := GetUserByEmail(d, email)
+	if err != nil {
+		return err
+	}
+	if !u.CheckPassword(oldPass) {
+		return sql.ErrNoRows // reusing this to signal wrong password
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPass), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	_, err = d.Exec(`UPDATE users SET password_hash = $1 WHERE email = $2`, string(hash), email)
+	return err
+}

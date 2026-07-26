@@ -36,6 +36,7 @@ func main() {
 	mux.HandleFunc("/api/auth/login", handler.Recover(h.HandleLogin))
 	mux.HandleFunc("/api/auth/logout", handler.Recover(h.HandleLogout))
 	mux.HandleFunc("/api/auth/me", handler.Recover(h.HandleMe))
+	mux.HandleFunc("/api/auth/change-password", handler.Recover(h.AuthMiddleware(h.HandleChangePassword)))
 
 	// Master
 	mux.HandleFunc("/api/master/chunk", handler.Recover(h.HandleMasterChunk))
@@ -60,6 +61,7 @@ func main() {
 	// Stock Take
 	mux.HandleFunc("/api/stocktake/submit", handler.Recover(h.AuthMiddleware(h.HandleStockTakeSubmit)))
 	mux.HandleFunc("/api/stocktake/today", handler.Recover(h.HandleStockTakeToday))
+	mux.HandleFunc("/api/stocktake/history", handler.Recover(h.HandleStockTakeHistory))
 	mux.HandleFunc("/api/stocktake/analyze-image", handler.Recover(h.AuthMiddleware(h.HandleStockTakeAnalyzeImage)))
 
 	// Disposal
@@ -82,9 +84,16 @@ func main() {
 	// Dashboard
 	mux.HandleFunc("/api/dashboard/summary", handler.Recover(h.HandleDashboardSummary))
 
+	// Users (admin only)
+	mux.HandleFunc("/api/users", handler.Recover(h.AdminMiddleware(h.HandleUsersList)))
+	mux.HandleFunc("/api/users/create", handler.Recover(h.AdminMiddleware(h.HandleUsersCreate)))
+	mux.HandleFunc("/api/users/delete", handler.Recover(h.AdminMiddleware(h.HandleUsersDelete)))
+
 	// Order
 	mux.HandleFunc("/api/order/prf-number", handler.Recover(h.AuthMiddleware(h.HandleOrderPRFNumber)))
 	mux.HandleFunc("/api/order/generate", handler.Recover(h.AuthMiddleware(h.HandleOrderGenerate)))
+	mux.HandleFunc("/api/order/list", handler.Recover(h.HandleOrderList))
+	mux.HandleFunc("/api/order/tick", handler.Recover(h.AuthMiddleware(h.HandleOrderTick)))
 
 	// SPA
 	mux.HandleFunc("/", handler.Recover(h.HandleSPA))

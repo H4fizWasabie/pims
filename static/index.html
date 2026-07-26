@@ -5,8 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 
   <style>
     :root {
@@ -101,11 +100,20 @@
     <a onclick="switchTab('pharmacy_order')" class="nav-link" id="nav-pharmacy_order">
       <i class="fa-solid fa-pills"></i> Pharm Order
     </a>
+    <a onclick="switchTab('medical_ward_order')" class="nav-link" id="nav-medical_ward_order">
+      <i class="fa-solid fa-house-medical"></i> Medical Ward
+    </a>
+    <a onclick="switchTab('surgical_ward_order')" class="nav-link" id="nav-surgical_ward_order">
+      <i class="fa-solid fa-scalpel"></i> Surgical Ward
+    </a>
     <a onclick="switchTab('indent_form')" class="nav-link" id="nav-indent_form">
       <i class="fa-solid fa-file-invoice"></i> Indent Form
     </a>
     <a onclick="switchTab('specification_form')" class="nav-link" id="nav-specification_form">
       <i class="fa-solid fa-wand-magic-sparkles"></i> New Item Request
+    </a>
+    <a onclick="switchTab('order_list')" class="nav-link" id="nav-order_list">
+      <i class="fa-solid fa-list-check"></i> Order List
     </a>
 
     <div class="nav-group">Inventory</div>
@@ -114,6 +122,9 @@
     </a>
     <a onclick="switchTab('stock_take')" class="nav-link" id="nav-stock_take">
       <i class="fa-solid fa-clipboard-check"></i> Stock Take
+    </a>
+    <a onclick="switchTab('scan_history')" class="nav-link" id="nav-scan_history">
+      <i class="fa-solid fa-clock-rotate-left"></i> Scan History
     </a>
     <a onclick="switchTab('stock_disposal')" class="nav-link" id="nav-stock_disposal">
       <i class="fa-solid fa-trash-can"></i> Disposal
@@ -125,6 +136,14 @@
       <i class="fa-solid fa-calendar-xmark"></i> Expiry
     </a>
 
+    <div class="nav-group">Admin</div>
+    <a onclick="switchTab('import_data')" class="nav-link admin-only" id="nav-import_data" style="display:none;">
+      <i class="fa-solid fa-file-import"></i> Import Data
+    </a>
+    <a onclick="switchTab('users')" class="nav-link admin-only" id="nav-users" style="display:none;">
+      <i class="fa-solid fa-users"></i> Users
+    </a>
+
     <div class="nav-group" style="margin-top:20px;">
       <a onclick="handleLogout()" class="nav-link" style="color:#f87171;">
         <i class="fa-solid fa-right-from-bracket"></i> Logout
@@ -132,6 +151,18 @@
     </div>
   </div>
 </nav>
+
+<div id="login-overlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:var(--dark-grey);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px;">
+  <div style="background:white;border-radius:12px;padding:40px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center;">
+    <i class="fa-solid fa-boxes-stacked" style="font-size:48px;color:var(--primary);margin-bottom:16px;"></i>
+    <h2 style="margin:0 0 8px;color:#1f2937;font-size:1.5rem;">PIMS Login</h2>
+    <p style="color:#6b7280;margin:0 0 24px;font-size:0.9rem;">Procurement &amp; Inventory Management</p>
+    <input type="email" id="login_email" placeholder="Email" style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:6px;font-size:1rem;margin-bottom:12px;box-sizing:border-box;" autocomplete="email">
+    <input type="password" id="login_password" placeholder="Password" style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:6px;font-size:1rem;margin-bottom:8px;box-sizing:border-box;" autocomplete="current-password">
+    <div id="login_error" style="color:#dc2626;font-size:0.85rem;margin-bottom:12px;display:none;"></div>
+    <button id="login_btn" onclick="doLogin()" style="width:100%;padding:12px;background:var(--primary);color:white;border:none;border-radius:6px;font-size:1rem;font-weight:600;cursor:pointer;">Sign In</button>
+  </div>
+</div>
 
 <div class="main-wrapper">
   <div class="top-header">
@@ -142,6 +173,9 @@
     <div style="font-size:0.9rem; color:#6b7280;" id="userDisplay">
       <i class="fa-solid fa-circle-user" style="font-size:1.2rem; vertical-align:middle;"></i>
       <span id="userEmail">...</span>
+      <span id="userActions" style="display:none;margin-left:8px;">
+        <a href="#" onclick="showChangePassword();return false;" style="font-size:0.75rem;color:#008080;text-decoration:none;font-weight:600;">Change Password</a>
+      </span>
     </div>
   </div>
 
@@ -692,8 +726,8 @@
     </div>
   </div>
 
-  <button id="lab_btnGenerate" class="lab-btn-generate" onclick="lab_generatePDF()" style="display:none;">
-    <i class="fa-solid fa-file-pdf"></i> Generate & Download PRF
+  <button id="lab_btnSubmit" class="lab-btn-generate" onclick="lab_submitOrder()" style="display:none;">
+    <i class="fa-solid fa-paper-plane"></i> Submit Order
   </button>
 
 </div>
@@ -788,10 +822,10 @@
 
     if(lab_cart.length > 0) {
       document.getElementById('lab_emptyState').style.display = 'none';
-      document.getElementById('lab_btnGenerate').style.display = 'block';
+      document.getElementById('lab_btnSubmit').style.display = 'block';
     } else {
       document.getElementById('lab_emptyState').style.display = 'block';
-      document.getElementById('lab_btnGenerate').style.display = 'none';
+      document.getElementById('lab_btnSubmit').style.display = 'none';
     }
 
     lab_cart.forEach((item, idx) => {
@@ -814,20 +848,20 @@
 
   function lab_removeItem(idx) { lab_cart.splice(idx, 1); lab_renderCart(); }
 
-  function lab_generatePDF() {
+  function lab_submitOrder() {
     if(lab_cart.length === 0) return;
-    if(!confirm("Generate PRF?")) return;
+    if(!confirm("Submit order for " + lab_cart.length + " items?")) return;
 
-    const btn = document.getElementById('lab_btnGenerate'); const oldText = btn.innerHTML;
-    btn.innerHTML = 'Processing...'; btn.disabled = true;
+    const btn = document.getElementById('lab_btnSubmit'); const oldText = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...'; btn.disabled = true;
 
-    api("POST", "/api/order/generate", orderData).then(file => {
-      const link = document.createElement('a'); link.href = "data:application/pdf;base64," + file.base64; link.download = file.fileName;
-      document.body.appendChild(link); link.click(); document.body.removeChild(link);
-      btn.innerHTML = oldText; btn.disabled = false; lab_cart = []; lab_renderCart();
-    }).withFailureHandler(err => {
+    api("POST", "/api/order/generate", { department: LAB_DEPT_NAME, items: lab_cart }).then(r => {
+      alert(r.message || 'Order submitted');
+      lab_cart = []; lab_renderCart();
+      btn.innerHTML = oldText; btn.disabled = false;
+    }).catch(err => {
       alert("Error: " + err); btn.innerHTML = oldText; btn.disabled = false;
-    }).generateOrderPdf({ department: LAB_DEPT_NAME, items: lab_cart });
+    });
   }
 </script>
 </div>
@@ -1002,8 +1036,8 @@
     </div>
   </div>
 
-  <button id="pharm_btnGenerate" class="pharm-btn-generate" onclick="pharm_generatePDF()" style="display:none;">
-    <i class="fa-solid fa-file-pdf"></i> Generate & Download PRF
+  <button id="pharm_btnSubmit" class="pharm-btn-generate" onclick="pharm_submitOrder()" style="display:none;">
+    <i class="fa-solid fa-paper-plane"></i> Submit Order
   </button>
 
 </div>
@@ -1029,7 +1063,7 @@
     if(query.length < 2) { pharm_resultsBox.style.display = 'none'; return; }
     pharm_resultsBox.style.display = 'block';
 
-    const matches = PHARM_MASTER_DATA.filter(item => item.itemName.toLowerCase().includes(query) || item.stockId.toLowerCase().includes(query)).slice(0, 10);
+    const matches = (PHARM_MASTER_DATA || []).filter(item => item.itemName.toLowerCase().includes(query) || item.stockId.toLowerCase().includes(query)).slice(0, 10);
     if(matches.length === 0) { pharm_resultsBox.innerHTML = '<div class="pharm-suggestion-item">No items found</div>'; return; }
 
     matches.forEach(item => {
@@ -1096,10 +1130,10 @@
 
     if(pharm_cart.length > 0) {
       document.getElementById('pharm_emptyState').style.display = 'none';
-      document.getElementById('pharm_btnGenerate').style.display = 'block';
+      document.getElementById('pharm_btnSubmit').style.display = 'block';
     } else {
       document.getElementById('pharm_emptyState').style.display = 'block';
-      document.getElementById('pharm_btnGenerate').style.display = 'none';
+      document.getElementById('pharm_btnSubmit').style.display = 'none';
     }
 
     pharm_cart.forEach((item, idx) => {
@@ -1122,20 +1156,324 @@
 
   function pharm_removeItem(idx) { pharm_cart.splice(idx, 1); pharm_renderCart(); }
 
-  function pharm_generatePDF() {
+  function pharm_submitOrder() {
     if(pharm_cart.length === 0) return;
-    if(!confirm("Generate PRF?")) return;
+    if(!confirm("Submit order for " + pharm_cart.length + " items?")) return;
 
-    const btn = document.getElementById('pharm_btnGenerate'); const oldText = btn.innerHTML;
-    btn.innerHTML = 'Processing...'; btn.disabled = true;
+    const btn = document.getElementById('pharm_btnSubmit'); const oldText = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...'; btn.disabled = true;
 
-    api("POST", "/api/order/generate", orderData).then(file => {
-      const link = document.createElement('a'); link.href = "data:application/pdf;base64," + file.base64; link.download = file.fileName;
-      document.body.appendChild(link); link.click(); document.body.removeChild(link);
-      btn.innerHTML = oldText; btn.disabled = false; pharm_cart = []; pharm_renderCart();
-    }).withFailureHandler(err => {
+    api("POST", "/api/order/generate", { department: PHARM_DEPT_NAME, items: pharm_cart }).then(r => {
+      alert(r.message || 'Order submitted');
+      pharm_cart = []; pharm_renderCart();
+      btn.innerHTML = oldText; btn.disabled = false;
+    }).catch(err => {
       alert("Error: " + err); btn.innerHTML = oldText; btn.disabled = false;
-    }).generateOrderPdf({ department: PHARM_DEPT_NAME, items: pharm_cart });
+    });
+  }
+</script>
+</div>
+    <div id="module-medical_ward_order" class="spa-module">
+<style>
+  :root { --med-primary: #7c3aed; --med-light: #f5f3ff; --med-border: #ddd6fe; }
+  .med-wrapper { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 25px; font-family: 'Inter', sans-serif; color: #334155; }
+  .med-header-card { background: white; border-radius: 10px; padding: 25px 30px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border-left: 6px solid var(--med-primary); display: flex; justify-content: space-between; align-items: center; }
+  .med-title h2 { margin: 0; font-size: 1.5rem; font-weight: 700; color: var(--med-primary); display: flex; align-items: center; gap: 12px; }
+  .med-title span { display: block; font-size: 0.875rem; color: #64748b; margin-top: 4px; font-weight: 500; }
+  .med-total { font-size: 1.8rem; font-weight: 800; color: var(--med-primary); letter-spacing: -0.5px; }
+  .med-entry-card { background: white; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); border: 1px solid var(--med-border); padding: 30px; }
+  .med-section-label { font-size: 0.95rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+  .med-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 120px; gap: 20px; align-items: end; }
+  .med-field-group { display: flex; flex-direction: column; gap: 8px; position: relative; }
+  .med-label { font-size: 0.85rem; font-weight: 600; color: #475569; }
+  .med-input { width: 100%; padding: 12px 16px; font-size: 0.95rem; border: 1px solid var(--med-border); border-radius: 6px; background-color: #f8fafc; transition: all 0.2s ease; box-sizing: border-box; }
+  .med-input:focus { background-color: white; border-color: var(--med-primary); outline: none; box-shadow: 0 0 0 3px rgba(124,58,237,0.1); }
+  .med-btn-add { height: 46px; background-color: var(--med-primary); color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .med-btn-add:hover { background-color: #6d28d9; }
+  .med-table-container { background: white; border-radius: 10px; border: 1px solid var(--med-border); overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+  .med-table { width: 100%; border-collapse: collapse; min-width: 700px; }
+  .med-table th { background-color: #f5f3ff; color: #6d28d9; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 16px 20px; text-align: left; border-bottom: 2px solid #ddd6fe; }
+  .med-table td { padding: 16px 20px; border-bottom: 1px solid #f1f5f9; font-size: 0.95rem; color: #334155; vertical-align: middle; }
+  .med-table tr:last-child td { border-bottom: none; }
+  .med-table tr:hover td { background-color: #f8fafc; }
+  .med-btn-icon { background: #fee2e2; color: #ef4444; border: none; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+  .med-btn-icon:hover { background: #ef4444; color: white; }
+  .med-btn-generate { background: var(--med-primary); color: white; width: 100%; padding: 16px; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 10px; box-shadow: 0 4px 6px rgba(124,58,237,0.2); }
+  .med-btn-generate:hover { transform: translateY(-1px); box-shadow: 0 6px 8px rgba(124,58,237,0.25); }
+  .med-suggestions { position: absolute; top: 100%; left: 0; width: 100%; background: white; border: 1px solid var(--med-border); border-radius: 6px; margin-top: 4px; z-index: 50; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); max-height: 250px; overflow-y: auto; display: none; }
+  .med-suggestion-item { padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; }
+  .med-suggestion-item:hover { background-color: #f5f3ff; }
+  @media (max-width: 900px) { .med-grid { grid-template-columns: 1fr; gap: 15px; } .med-table-container { overflow-x: auto; } }
+</style>
+<div id="med_initLoader" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.95); z-index:2000; display:flex; justify-content:center; align-items:center; flex-direction:column;">
+  <i class="fa-solid fa-spinner fa-spin" style="font-size:40px; color:#7c3aed; margin-bottom:15px;"></i>
+  <p style="color:#334155; font-weight:600;">Initializing Medical Ward Module...</p>
+</div>
+<div class="med-wrapper">
+  <div class="med-header-card">
+    <div class="med-title">
+      <h2><i class="fa-solid fa-house-medical"></i> Medical Ward Order</h2>
+      <span>Create Internal Requisition (PRF)</span>
+    </div>
+    <div id="med_grandTotalDisplay" class="med-total">RM 0.00</div>
+  </div>
+  <div class="med-entry-card">
+    <div class="med-section-label"><i class="fa-solid fa-cart-plus"></i> Add New Item</div>
+    <div class="med-grid">
+      <div class="med-field-group">
+        <label class="med-label">Search Item</label>
+        <div style="position:relative;">
+          <input type="text" id="med_searchInput" class="med-input" placeholder="Type item name..." autocomplete="off">
+          <div id="med_searchResults" class="med-suggestions"></div>
+        </div>
+        <input type="hidden" id="med_stockId"><input type="hidden" id="med_itemName"><input type="hidden" id="med_uom"><input type="hidden" id="med_cost"><input type="hidden" id="med_supplier">
+      </div>
+      <div class="med-field-group">
+        <label class="med-label">Current Stock</label>
+        <input type="text" id="med_stockDisplay" class="med-input" readonly placeholder="-" style="background:#f1f5f9; color:#475569;">
+      </div>
+      <div class="med-field-group">
+        <label class="med-label">Reason</label>
+        <input type="text" id="med_reasonInput" class="med-input" placeholder="e.g. Low Stock">
+      </div>
+      <div class="med-field-group">
+        <label class="med-label">Quantity</label>
+        <input type="number" id="med_qtyInput" class="med-input" min="1" placeholder="0">
+      </div>
+      <button class="med-btn-add" onclick="med_addItem()"><i class="fa-solid fa-plus"></i> Add</button>
+    </div>
+  </div>
+  <div class="med-table-container">
+    <table class="med-table">
+      <thead><tr><th width="40%">Item Name</th><th width="10%">UOM</th><th width="15%">Unit Cost</th><th width="10%">Qty</th><th width="15%">Total</th><th width="10%" style="text-align:center;">Action</th></tr></thead>
+      <tbody id="med_cartTableBody"></tbody>
+    </table>
+    <div id="med_emptyState" style="text-align:center;padding:60px 20px;color:#94a3b8;font-style:italic;">
+      <i class="fa-solid fa-basket-shopping" style="font-size:2rem;margin-bottom:10px;opacity:0.3;"></i><br>No items added yet.
+    </div>
+  </div>
+  <button id="med_btnSubmit" class="med-btn-generate" onclick="med_submitOrder()" style="display:none;"><i class="fa-solid fa-paper-plane"></i> Submit Order</button>
+</div>
+<script>
+  const MED_DEPT_NAME = 'Medical Ward';
+  let MED_MASTER_DATA = [];
+  let med_cart = [];
+  document.addEventListener('DOMContentLoaded', () => {
+    api("GET", "/api/master/all").then(data => { MED_MASTER_DATA = data; document.getElementById('med_initLoader').style.display = 'none'; }).catch(err => console.error(err));
+  });
+  const med_searchInput = document.getElementById('med_searchInput');
+  const med_resultsBox = document.getElementById('med_searchResults');
+  med_searchInput.addEventListener('input', function() {
+    const query = this.value.toLowerCase().trim();
+    med_resultsBox.innerHTML = '';
+    if(query.length < 2) { med_resultsBox.style.display = 'none'; return; }
+    med_resultsBox.style.display = 'block';
+    const matches = (MED_MASTER_DATA || []).filter(item => item.itemName.toLowerCase().includes(query) || item.stockId.toLowerCase().includes(query)).slice(0, 10);
+    if(matches.length === 0) { med_resultsBox.innerHTML = '<div class="med-suggestion-item">No items found</div>'; return; }
+    matches.forEach(item => {
+      const div = document.createElement('div'); div.className = 'med-suggestion-item';
+      const stockStyle = item.currentStock > 0 ? 'color:#059669;' : 'color:#dc2626; font-weight:bold;';
+      div.innerHTML = `<div style="font-weight:600;">${item.itemName}</div><div style="font-size:0.8rem;display:flex;justify-content:space-between;margin-top:2px;"><span>ID: ${item.stockId}</span><span style="${stockStyle}">Stock: ${item.currentStock} ${item.uom}</span></div>`;
+      div.onclick = () => med_selectItem(item);
+      med_resultsBox.appendChild(div);
+    });
+  });
+  function med_selectItem(item) {
+    med_searchInput.value = item.itemName;
+    document.getElementById('med_stockId').value = item.stockId;
+    document.getElementById('med_itemName').value = item.itemName;
+    document.getElementById('med_uom').value = item.uom;
+    document.getElementById('med_cost').value = item.cost;
+    document.getElementById('med_supplier').value = item.supplier;
+    const stockDisp = document.getElementById('med_stockDisplay');
+    stockDisp.value = `${item.currentStock} ${item.uom}`;
+    if(item.currentStock <= 0) { stockDisp.style.color = '#dc2626'; stockDisp.style.backgroundColor = '#fef2f2'; }
+    else { stockDisp.style.color = '#1f2937'; stockDisp.style.backgroundColor = '#f1f5f9'; }
+    med_resultsBox.style.display = 'none';
+    document.getElementById('med_qtyInput').focus();
+  }
+  document.addEventListener('click', e => { if (!med_searchInput.contains(e.target)) med_resultsBox.style.display = 'none'; });
+  function med_addItem() {
+    const stockId = document.getElementById('med_stockId').value;
+    const qty = parseFloat(document.getElementById('med_qtyInput').value);
+    if(!stockId) { alert("Select item."); return; }
+    if(!qty || qty <= 0) { alert("Invalid quantity."); return; }
+    med_cart.push({ stockId, itemName: document.getElementById('med_itemName').value, uom: document.getElementById('med_uom').value, cost: parseFloat(document.getElementById('med_cost').value), supplier: document.getElementById('med_supplier').value, qty, reason: document.getElementById('med_reasonInput').value, total: qty * parseFloat(document.getElementById('med_cost').value) });
+    med_renderCart();
+    med_searchInput.value = ''; document.getElementById('med_qtyInput').value = ''; document.getElementById('med_reasonInput').value = ''; document.getElementById('med_stockId').value = ''; document.getElementById('med_stockDisplay').value = '';
+  }
+  function med_renderCart() {
+    const tbody = document.getElementById('med_cartTableBody'); tbody.innerHTML = ''; let grandTotal = 0;
+    if(med_cart.length > 0) { document.getElementById('med_emptyState').style.display = 'none'; document.getElementById('med_btnSubmit').style.display = 'block'; }
+    else { document.getElementById('med_emptyState').style.display = 'block'; document.getElementById('med_btnSubmit').style.display = 'none'; }
+    med_cart.forEach((item, idx) => {
+      grandTotal += item.total;
+      tbody.innerHTML += `<tr><td style="font-weight:500;">${item.itemName}</td><td>${item.uom}</td><td>${item.cost.toFixed(2)}</td><td style="font-weight:bold;color:#7c3aed;">${item.qty}</td><td>${item.total.toFixed(2)}</td><td style="text-align:center;"><button class="med-btn-icon" onclick="med_removeItem(${idx})"><i class="fa-solid fa-trash"></i></button></td></tr>`;
+    });
+    document.getElementById('med_grandTotalDisplay').innerText = "RM " + grandTotal.toFixed(2);
+  }
+  function med_removeItem(idx) { med_cart.splice(idx, 1); med_renderCart(); }
+  function med_submitOrder() {
+    if(med_cart.length === 0) return;
+    if(!confirm("Submit order for " + med_cart.length + " items?")) return;
+    const btn = document.getElementById('med_btnSubmit'); const oldText = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...'; btn.disabled = true;
+    api("POST", "/api/order/generate", { department: MED_DEPT_NAME, items: med_cart }).then(r => {
+      alert(r.message || 'Order submitted');
+      med_cart = []; med_renderCart(); btn.innerHTML = oldText; btn.disabled = false;
+    }).catch(err => { alert("Error: " + err); btn.innerHTML = oldText; btn.disabled = false; });
+  }
+</script>
+</div>
+    <div id="module-surgical_ward_order" class="spa-module">
+<style>
+  :root { --surg-primary: #dc2626; --surg-light: #fef2f2; --surg-border: #fecaca; }
+  .surg-wrapper { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 25px; font-family: 'Inter', sans-serif; color: #334155; }
+  .surg-header-card { background: white; border-radius: 10px; padding: 25px 30px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border-left: 6px solid var(--surg-primary); display: flex; justify-content: space-between; align-items: center; }
+  .surg-title h2 { margin: 0; font-size: 1.5rem; font-weight: 700; color: var(--surg-primary); display: flex; align-items: center; gap: 12px; }
+  .surg-title span { display: block; font-size: 0.875rem; color: #64748b; margin-top: 4px; font-weight: 500; }
+  .surg-total { font-size: 1.8rem; font-weight: 800; color: var(--surg-primary); letter-spacing: -0.5px; }
+  .surg-entry-card { background: white; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); border: 1px solid var(--surg-border); padding: 30px; }
+  .surg-section-label { font-size: 0.95rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+  .surg-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 120px; gap: 20px; align-items: end; }
+  .surg-field-group { display: flex; flex-direction: column; gap: 8px; position: relative; }
+  .surg-label { font-size: 0.85rem; font-weight: 600; color: #475569; }
+  .surg-input { width: 100%; padding: 12px 16px; font-size: 0.95rem; border: 1px solid var(--surg-border); border-radius: 6px; background-color: #f8fafc; transition: all 0.2s ease; box-sizing: border-box; }
+  .surg-input:focus { background-color: white; border-color: var(--surg-primary); outline: none; box-shadow: 0 0 0 3px rgba(220,38,38,0.1); }
+  .surg-btn-add { height: 46px; background-color: var(--surg-primary); color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .surg-btn-add:hover { background-color: #b91c1c; }
+  .surg-table-container { background: white; border-radius: 10px; border: 1px solid var(--surg-border); overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+  .surg-table { width: 100%; border-collapse: collapse; min-width: 700px; }
+  .surg-table th { background-color: #fef2f2; color: #b91c1c; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 16px 20px; text-align: left; border-bottom: 2px solid #fecaca; }
+  .surg-table td { padding: 16px 20px; border-bottom: 1px solid #f1f5f9; font-size: 0.95rem; color: #334155; vertical-align: middle; }
+  .surg-table tr:last-child td { border-bottom: none; }
+  .surg-table tr:hover td { background-color: #f8fafc; }
+  .surg-btn-icon { background: #fee2e2; color: #ef4444; border: none; width: 32px; height: 32px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+  .surg-btn-icon:hover { background: #ef4444; color: white; }
+  .surg-btn-generate { background: var(--surg-primary); color: white; width: 100%; padding: 16px; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 10px; box-shadow: 0 4px 6px rgba(220,38,38,0.2); }
+  .surg-btn-generate:hover { transform: translateY(-1px); box-shadow: 0 6px 8px rgba(220,38,38,0.25); }
+  .surg-suggestions { position: absolute; top: 100%; left: 0; width: 100%; background: white; border: 1px solid var(--surg-border); border-radius: 6px; margin-top: 4px; z-index: 50; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); max-height: 250px; overflow-y: auto; display: none; }
+  .surg-suggestion-item { padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; }
+  .surg-suggestion-item:hover { background-color: #fef2f2; }
+  @media (max-width: 900px) { .surg-grid { grid-template-columns: 1fr; gap: 15px; } .surg-table-container { overflow-x: auto; } }
+</style>
+<div id="surg_initLoader" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.95); z-index:2000; display:flex; justify-content:center; align-items:center; flex-direction:column;">
+  <i class="fa-solid fa-spinner fa-spin" style="font-size:40px; color:#dc2626; margin-bottom:15px;"></i>
+  <p style="color:#334155; font-weight:600;">Initializing Surgical Ward Module...</p>
+</div>
+<div class="surg-wrapper">
+  <div class="surg-header-card">
+    <div class="surg-title">
+      <h2><i class="fa-solid fa-scalpel"></i> Surgical Ward Order</h2>
+      <span>Create Internal Requisition (PRF)</span>
+    </div>
+    <div id="surg_grandTotalDisplay" class="surg-total">RM 0.00</div>
+  </div>
+  <div class="surg-entry-card">
+    <div class="surg-section-label"><i class="fa-solid fa-cart-plus"></i> Add New Item</div>
+    <div class="surg-grid">
+      <div class="surg-field-group">
+        <label class="surg-label">Search Item</label>
+        <div style="position:relative;">
+          <input type="text" id="surg_searchInput" class="surg-input" placeholder="Type item name..." autocomplete="off">
+          <div id="surg_searchResults" class="surg-suggestions"></div>
+        </div>
+        <input type="hidden" id="surg_stockId"><input type="hidden" id="surg_itemName"><input type="hidden" id="surg_uom"><input type="hidden" id="surg_cost"><input type="hidden" id="surg_supplier">
+      </div>
+      <div class="surg-field-group">
+        <label class="surg-label">Current Stock</label>
+        <input type="text" id="surg_stockDisplay" class="surg-input" readonly placeholder="-" style="background:#f1f5f9; color:#475569;">
+      </div>
+      <div class="surg-field-group">
+        <label class="surg-label">Reason</label>
+        <input type="text" id="surg_reasonInput" class="surg-input" placeholder="e.g. Low Stock">
+      </div>
+      <div class="surg-field-group">
+        <label class="surg-label">Quantity</label>
+        <input type="number" id="surg_qtyInput" class="surg-input" min="1" placeholder="0">
+      </div>
+      <button class="surg-btn-add" onclick="surg_addItem()"><i class="fa-solid fa-plus"></i> Add</button>
+    </div>
+  </div>
+  <div class="surg-table-container">
+    <table class="surg-table">
+      <thead><tr><th width="40%">Item Name</th><th width="10%">UOM</th><th width="15%">Unit Cost</th><th width="10%">Qty</th><th width="15%">Total</th><th width="10%" style="text-align:center;">Action</th></tr></thead>
+      <tbody id="surg_cartTableBody"></tbody>
+    </table>
+    <div id="surg_emptyState" style="text-align:center;padding:60px 20px;color:#94a3b8;font-style:italic;">
+      <i class="fa-solid fa-basket-shopping" style="font-size:2rem;margin-bottom:10px;opacity:0.3;"></i><br>No items added yet.
+    </div>
+  </div>
+  <button id="surg_btnSubmit" class="surg-btn-generate" onclick="surg_submitOrder()" style="display:none;"><i class="fa-solid fa-paper-plane"></i> Submit Order</button>
+</div>
+<script>
+  const SURG_DEPT_NAME = 'Surgical Ward';
+  let SURG_MASTER_DATA = [];
+  let surg_cart = [];
+  document.addEventListener('DOMContentLoaded', () => {
+    api("GET", "/api/master/all").then(data => { SURG_MASTER_DATA = data; document.getElementById('surg_initLoader').style.display = 'none'; }).catch(err => console.error(err));
+  });
+  const surg_searchInput = document.getElementById('surg_searchInput');
+  const surg_resultsBox = document.getElementById('surg_searchResults');
+  surg_searchInput.addEventListener('input', function() {
+    const query = this.value.toLowerCase().trim();
+    surg_resultsBox.innerHTML = '';
+    if(query.length < 2) { surg_resultsBox.style.display = 'none'; return; }
+    surg_resultsBox.style.display = 'block';
+    const matches = (SURG_MASTER_DATA || []).filter(item => item.itemName.toLowerCase().includes(query) || item.stockId.toLowerCase().includes(query)).slice(0, 10);
+    if(matches.length === 0) { surg_resultsBox.innerHTML = '<div class="surg-suggestion-item">No items found</div>'; return; }
+    matches.forEach(item => {
+      const div = document.createElement('div'); div.className = 'surg-suggestion-item';
+      const stockStyle = item.currentStock > 0 ? 'color:#059669;' : 'color:#dc2626; font-weight:bold;';
+      div.innerHTML = `<div style="font-weight:600;">${item.itemName}</div><div style="font-size:0.8rem;display:flex;justify-content:space-between;margin-top:2px;"><span>ID: ${item.stockId}</span><span style="${stockStyle}">Stock: ${item.currentStock} ${item.uom}</span></div>`;
+      div.onclick = () => surg_selectItem(item);
+      surg_resultsBox.appendChild(div);
+    });
+  });
+  function surg_selectItem(item) {
+    surg_searchInput.value = item.itemName;
+    document.getElementById('surg_stockId').value = item.stockId;
+    document.getElementById('surg_itemName').value = item.itemName;
+    document.getElementById('surg_uom').value = item.uom;
+    document.getElementById('surg_cost').value = item.cost;
+    document.getElementById('surg_supplier').value = item.supplier;
+    const stockDisp = document.getElementById('surg_stockDisplay');
+    stockDisp.value = `${item.currentStock} ${item.uom}`;
+    if(item.currentStock <= 0) { stockDisp.style.color = '#dc2626'; stockDisp.style.backgroundColor = '#fef2f2'; }
+    else { stockDisp.style.color = '#1f2937'; stockDisp.style.backgroundColor = '#f1f5f9'; }
+    surg_resultsBox.style.display = 'none';
+    document.getElementById('surg_qtyInput').focus();
+  }
+  document.addEventListener('click', e => { if (!surg_searchInput.contains(e.target)) surg_resultsBox.style.display = 'none'; });
+  function surg_addItem() {
+    const stockId = document.getElementById('surg_stockId').value;
+    const qty = parseFloat(document.getElementById('surg_qtyInput').value);
+    if(!stockId) { alert("Select item."); return; }
+    if(!qty || qty <= 0) { alert("Invalid quantity."); return; }
+    surg_cart.push({ stockId, itemName: document.getElementById('surg_itemName').value, uom: document.getElementById('surg_uom').value, cost: parseFloat(document.getElementById('surg_cost').value), supplier: document.getElementById('surg_supplier').value, qty, reason: document.getElementById('surg_reasonInput').value, total: qty * parseFloat(document.getElementById('surg_cost').value) });
+    surg_renderCart();
+    surg_searchInput.value = ''; document.getElementById('surg_qtyInput').value = ''; document.getElementById('surg_reasonInput').value = ''; document.getElementById('surg_stockId').value = ''; document.getElementById('surg_stockDisplay').value = '';
+  }
+  function surg_renderCart() {
+    const tbody = document.getElementById('surg_cartTableBody'); tbody.innerHTML = ''; let grandTotal = 0;
+    if(surg_cart.length > 0) { document.getElementById('surg_emptyState').style.display = 'none'; document.getElementById('surg_btnSubmit').style.display = 'block'; }
+    else { document.getElementById('surg_emptyState').style.display = 'block'; document.getElementById('surg_btnSubmit').style.display = 'none'; }
+    surg_cart.forEach((item, idx) => {
+      grandTotal += item.total;
+      tbody.innerHTML += `<tr><td style="font-weight:500;">${item.itemName}</td><td>${item.uom}</td><td>${item.cost.toFixed(2)}</td><td style="font-weight:bold;color:#dc2626;">${item.qty}</td><td>${item.total.toFixed(2)}</td><td style="text-align:center;"><button class="surg-btn-icon" onclick="surg_removeItem(${idx})"><i class="fa-solid fa-trash"></i></button></td></tr>`;
+    });
+    document.getElementById('surg_grandTotalDisplay').innerText = "RM " + grandTotal.toFixed(2);
+  }
+  function surg_removeItem(idx) { surg_cart.splice(idx, 1); surg_renderCart(); }
+  function surg_submitOrder() {
+    if(surg_cart.length === 0) return;
+    if(!confirm("Submit order for " + surg_cart.length + " items?")) return;
+    const btn = document.getElementById('surg_btnSubmit'); const oldText = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...'; btn.disabled = true;
+    api("POST", "/api/order/generate", { department: SURG_DEPT_NAME, items: surg_cart }).then(r => {
+      alert(r.message || 'Order submitted');
+      surg_cart = []; surg_renderCart(); btn.innerHTML = oldText; btn.disabled = false;
+    }).catch(err => { alert("Error: " + err); btn.innerHTML = oldText; btn.disabled = false; });
   }
 </script>
 </div>
@@ -1665,8 +2003,8 @@
     </table>
   </div>
 
-  <button id="grn_btnPdf" class="grn-btn-save" onclick="grn_generatePDF()">
-    <i class="fa-solid fa-floppy-disk"></i> Save & Generate PDF
+  <button id="grn_btnSubmit" class="grn-btn-save" onclick="grn_submitGRN()">
+    <i class="fa-solid fa-floppy-disk"></i> Submit GRN
   </button>
 
 </div>
@@ -1681,7 +2019,7 @@
     api("GET", "/api/grn/master-data").then(data => {
       GRN_MASTER_ITEMS = data.items;
       const dl = document.getElementById('grn_supplierList');
-      data.suppliers.forEach(s => {
+      (data.suppliers || []).forEach(s => {
         const opt = document.createElement('option'); opt.value = s; dl.appendChild(opt);
       });
     });
@@ -1776,13 +2114,13 @@
     });
   }
 
-  function grn_generatePDF() {
-    if(GRN_CART_ITEMS.length === 0) { alert("No items to generate."); return; }
+  function grn_submitGRN() {
+    if(GRN_CART_ITEMS.length === 0) { alert("No items to submit."); return; }
     
     const supplier = document.getElementById('grn_supplierInput').value;
     if(!supplier) { alert("Please enter Supplier Name."); return; }
 
-    const btn = document.getElementById('grn_btnPdf');
+    const btn = document.getElementById('grn_btnSubmit');
     const oldText = btn.innerHTML;
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...';
     btn.disabled = true;
@@ -1807,22 +2145,7 @@
 </script>
 </div>
     <div id="module-stock_take" class="spa-module">
-<!-- Dependencies for React / Tailwind -->
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-  tailwind.config = {
-    corePlugins: { preflight: false },
-    darkMode: 'class',
-    theme: {
-      extend: {
-        colors: {
-          primary: '#4f46e5', // Indigo 600 for Stock Take
-          secondary: '#64748b',
-        }
-      }
-    }
-  }
-</script>
+<!-- Dependencies for React -->
 
 <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
@@ -2511,8 +2834,6 @@
   
   .analy-btn { padding: 12px 25px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 0.95rem; }
   .analy-btn-run { background-color: var(--analy-primary); color: white; }
-  .analy-btn-pdf { background-color: #334155; color: white; } 
-  .analy-btn-pdf:disabled { background-color: #cbd5e1; }
 
   /* TABLE */
   .analy-table-container { background: white; border-radius: 10px; overflow-x: auto; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
@@ -2554,7 +2875,7 @@
     <div style="font-size: 1.2rem; font-weight: 700; color: #333; display: flex; align-items: center; gap: 10px;"><i class="fa-solid fa-chart-pie"></i> Variance Analysis</div>
     <div style="display:flex; gap:10px; flex-direction: inherit;">
       <button class="analy-btn analy-btn-run" onclick="analy_runAnalysis()" id="analy_btnRun"><i class="fa-solid fa-rotate"></i> Run Analysis</button>
-      <button class="analy-btn analy-btn-pdf" onclick="analy_downloadPdf()" id="analy_btnPdf" disabled><i class="fa-solid fa-file-pdf"></i> Download Report</button>
+    </div>
     </div>
   </div>
 
@@ -2579,11 +2900,9 @@
       if (res.success) {
         document.getElementById('analy_dispSurplus').innerText = "RM " + res.surplus.toFixed(2);
         document.getElementById('analy_dispShortage').innerText = "RM " + res.shortage.toFixed(2);
-        document.getElementById('analy_btnPdf').disabled = false;
         alert(res.message); analy_loadTableData();
       } else { alert(res.message); }
-    }).withFailureHandler(err => { alert("Error: " + err); btn.innerHTML = oldText; btn.disabled = false; })
-    .runStockAnalysis();
+    }).catch(err => { alert("Error: " + err); btn.innerHTML = oldText; btn.disabled = false; });
   }
 
   function analy_loadTableData() {
@@ -2595,16 +2914,6 @@
         tbody.innerHTML += `<tr><td style="font-family:monospace;">${item.stockId}</td><td>${item.name}</td><td>${item.sysQty}</td><td>${item.phyQty}</td><td style="font-weight:bold;">${item.diff}</td><td>RM ${parseFloat(item.val).toFixed(2)}</td><td><span class="analy-status-badge ${badgeClass}">${item.status}</span></td></tr>`;
       });
     }).catch(err => console.error(err));
-  }
-
-  function analy_downloadPdf() {
-    const btn = document.getElementById('analy_btnPdf'); btn.innerHTML = 'Generating...'; btn.disabled = true;
-    api("GET", "/api/analysis/today").then(file => {
-      const link = document.createElement('a'); link.href = "data:application/pdf;base64," + file.base64; link.download = file.fileName;
-      document.body.appendChild(link); link.click(); document.body.removeChild(link);
-      btn.innerHTML = '<i class="fa-solid fa-file-pdf"></i> Download Report'; btn.disabled = false;
-    }).withFailureHandler(err => { alert("Error: " + err); btn.innerHTML = '<i class="fa-solid fa-file-pdf"></i> Download Report'; btn.disabled = false; })
-    .generateAnalysisPdf();
   }
 </script>
 </div>
@@ -2761,9 +3070,6 @@
   <div class="exp-header-card">
     <div style="font-size: 1.5rem; font-weight: 700; color: #111827; display: flex; align-items: center; gap: 10px;">
       <i class="fa-solid fa-clock-rotate-left"></i> Expiry Tracking
-      <button onclick="exp_downloadPDF()"
-        style="margin-left: 15px; background: var(--primary, #008080); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; gap: 5px; box-shadow: 0 1px 2px rgba(0,0,0,0.1);"><i
-          class="fa-solid fa-file-pdf"></i> PDF</button>
     </div>
     <div class="exp-legend">
       <div class="exp-legend-item">
@@ -2878,57 +3184,412 @@
           if (remark) { api("POST", "/api/expiry/update-remark", {rowIndex: rowIndex, remark: "EXPIRED: " + remark}).then(() => { exp_loadData(); }); }
         }
 
-        function exp_downloadPDF() {
-          if (!window.jspdf || !window.jspdf.jsPDF) {
-            alert("PDF library is still loading. Please try again in a moment.");
-            return;
-          }
-          if (!window.exp_currentData || window.exp_currentData.length === 0) {
-            alert("No expiry data available to download.");
-            return;
-          }
-
-          const doc = new window.jspdf.jsPDF();
-
-          // Title
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(16);
-          doc.text("Expiry Tracking Report", 14, 20);
-
-          // Subtitle / Date
-          doc.setFontSize(10);
-          doc.setFont("helvetica", "normal");
-          const today = new Date().toLocaleDateString('en-GB');
-          doc.text("Generated on: " + today, 14, 28);
-
-          // Format Data
-          const tableData = window.exp_currentData.map(item => [
-            item.itemName,
-            item.stockId,
-            item.batch,
-            item.expiry,
-            item.label,
-            `${item.latestQty} ${item.uom}`,
-            item.remarks || '-'
-          ]);
-
-          // Generate Table
-          doc.autoTable({
-            startY: 35,
-            head: [['Item Name', 'Stock ID', 'Batch No', 'Expiry Date', 'Status', 'Qty', 'Remarks']],
-            body: tableData,
-            theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2 },
-            headStyles: { fillColor: [0, 128, 128], textColor: 255, fontStyle: 'bold' },
-            alternateRowStyles: { fillColor: [245, 245, 245] },
-          });
-
-          // Save Output
-          const filename = "Expiry_Report_" + new Date().toISOString().split('T')[0] + ".pdf";
-          doc.save(filename);
-        }
       </script>
 </div>
+
+    <div id="module-users" class="spa-module">
+<style>
+  .usr-wrap { max-width: 600px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+  .usr-card { background: white; border-radius: 10px; padding: 20px; border: 1px solid #e2e8f0; }
+  .usr-card h2 { margin: 0 0 16px; font-size: 1.1rem; color: #1e293b; display: flex; align-items: center; gap: 8px; }
+  .usr-form { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
+  .usr-field { display: flex; flex-direction: column; gap: 4px; }
+  .usr-field label { font-size: 0.75rem; font-weight: 600; color: #64748b; }
+  .usr-field input { padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem; }
+  .usr-btn { padding: 8px 16px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.85rem; }
+  .usr-btn-add { background: #008080; color: white; }
+  .usr-btn-del { background: #fee2e2; color: #dc2626; padding: 4px 10px; font-size: 0.75rem; }
+  .usr-table { width: 100%; border-collapse: collapse; }
+  .usr-table th { text-align: left; padding: 10px 12px; background: #f8fafc; font-size: 0.75rem; color: #64748b; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+  .usr-table td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; }
+</style>
+<div class="usr-wrap">
+  <div class="usr-card">
+    <h2><i class="fa-solid fa-user-plus"></i> Add User</h2>
+    <div class="usr-form">
+      <div class="usr-field"><label>Email</label><input type="email" id="usr_email" placeholder="user@example.com" style="min-width:200px;"></div>
+      <div class="usr-field"><label>Password</label><input type="password" id="usr_password" placeholder="min 6 chars" style="min-width:140px;"></div>
+      <button class="usr-btn usr-btn-add" onclick="usr_add()"><i class="fa-solid fa-plus"></i> Add</button>
+    </div>
+    <div id="usr_msg" style="margin-top:12px;font-size:0.85rem;"></div>
+  </div>
+  <div class="usr-card">
+    <h2><i class="fa-solid fa-users"></i> Current Users</h2>
+    <table class="usr-table">
+      <thead><tr><th>Email</th><th>Role</th><th>Created</th><th style="text-align:center;">Action</th></tr></thead>
+      <tbody id="usr_tbody"></tbody>
+    </table>
+  </div>
+</div>
+<script>
+function usr_load() {
+  api('GET', '/api/users').then(function(users) {
+    var tb = document.getElementById('usr_tbody');
+    if(!users.length) { tb.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:20px;">No users</td></tr>'; return; }
+    tb.innerHTML = users.map(function(u) {
+      return '<tr><td>'+u.email+'</td><td>'+u.role+'</td><td style="font-size:0.8rem;color:#64748b;">'+u.createdAt+'</td><td style="text-align:center;"><button class="usr-btn usr-btn-del" onclick="usr_del('+u.id+',this)">Delete</button></td></tr>';
+    }).join('');
+  }).catch(function(e) { document.getElementById('usr_msg').innerText = 'Error: '+e.message; });
+}
+function usr_add() {
+  var email = document.getElementById('usr_email').value.trim();
+  var password = document.getElementById('usr_password').value;
+  if(!email || !password) { document.getElementById('usr_msg').innerText = 'Fill all fields'; return; }
+  if(password.length < 6) { document.getElementById('usr_msg').innerText = 'Password too short'; return; }
+  api('POST', '/api/users/create', {email: email, password: password, role: 'user'}).then(function(r) {
+    document.getElementById('usr_msg').innerHTML = '<span style="color:#059669;">User created</span>';
+    document.getElementById('usr_email').value = '';
+    document.getElementById('usr_password').value = '';
+    usr_load();
+  }).catch(function(e) { document.getElementById('usr_msg').innerText = 'Error: '+e.message; });
+}
+function usr_del(id, btn) {
+  if(!confirm('Delete this user?')) return;
+  api('POST', '/api/users/delete?id='+id).then(function(r) {
+    usr_load();
+  }).catch(function(e) { alert('Error: '+e.message); });
+}
+usr_load();
+</script>
+</div>
+
+    <div id="module-import_data" class="spa-module">
+<style>
+  .imp-wrap { max-width: 560px; margin: 0 auto; }
+  .imp-card { background: white; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); padding: 24px; overflow: hidden; }
+  .imp-card h3 { margin: 0 0 10px 0; color: #1e293b; font-size: 18px; }
+  .imp-card p { color: #64748b; font-size: 13px; margin: 0 0 12px 0; line-height: 1.5; }
+  .imp-cols { font-size: 11px; color: #94a3b8; margin-bottom: 16px; word-break: break-all; line-height: 1.6; }
+  .imp-cols code { background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
+  .imp-drop { display: block; border: 2px dashed #cbd5e1; border-radius: 10px; padding: 32px 20px; text-align: center; cursor: pointer; transition: background 0.2s; margin-bottom: 16px; }
+  .imp-drop:hover, .imp-drop.dragover { background: #f1f5f9; border-color: #008080; }
+  .imp-drop i { display: block; font-size: 40px; color: #008080; margin-bottom: 10px; }
+  .imp-drop .imp-drop-title { font-weight: 600; color: #1e293b; font-size: 14px; }
+  .imp-drop .imp-drop-sub { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+  .imp-btn { width: 100%; padding: 12px; background: #008080; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; }
+  .imp-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .imp-status { margin-top: 14px; padding: 10px 14px; border-radius: 8px; display: none; font-size: 13px; }
+  .imp-status.success { background: #dcfce7; color: #166534; display: block; }
+  .imp-status.error { background: #fee2e2; color: #991b1b; display: block; }
+  .imp-status.info { background: #e0f2fe; color: #075985; display: block; }
+  .imp-preview { margin-top: 14px; max-height: 180px; overflow: auto; font-size: 11px; background: #f8fafc; border-radius: 8px; padding: 10px; }
+  .imp-preview table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .imp-preview th { background: #e2e8f0; padding: 5px 6px; text-align: left; font-size: 10px; white-space: nowrap; }
+  .imp-preview td { padding: 3px 6px; border-bottom: 1px solid #e2e8f0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 120px; }
+</style>
+<div class="imp-wrap">
+  <div class="imp-card">
+    <h3><i class="fa-solid fa-file-excel" style="color:#059669; margin-right:8px;"></i>Import Master Data</h3>
+    <p>Upload an Excel file to <b>replace all</b> master data. Expected columns in first row:</p>
+    <div class="imp-cols"><code>Product Name, Product Type, Product Status, SKU Code, Brand, Category, Supplier, UOM, Cost Price, Selling Price, Actual Stock</code></div>
+    <label class="imp-drop" id="import_dropZone">
+      <input type="file" id="import_fileInput" accept=".xlsx,.xls" style="display:none" />
+      <i class="fa-solid fa-cloud-arrow-up"></i>
+      <div class="imp-drop-title">Click or drop .xlsx file here</div>
+      <div class="imp-drop-sub">Supports .xlsx and .xls</div>
+    </label>
+    <button class="imp-btn" id="import_uploadBtn" disabled onclick="importExcel()">
+      <i class="fa-solid fa-upload"></i> Upload &amp; Replace All Data
+    </button>
+    <div class="imp-status" id="import_status"></div>
+    <div class="imp-preview" id="import_preview" style="display:none;"></div>
+  </div>
+</div>
+
+<script>
+  let import_parsedData = null;
+  const import_fileInput = document.getElementById('import_fileInput');
+  const import_dropZone = document.getElementById('import_dropZone');
+  const import_uploadBtn = document.getElementById('import_uploadBtn');
+  const import_status = document.getElementById('import_status');
+  const import_preview = document.getElementById('import_preview');
+
+  import_dropZone.addEventListener('click', () => import_fileInput.click());
+  import_dropZone.addEventListener('dragover', (e) => { e.preventDefault(); import_dropZone.classList.add('dragover'); });
+  import_dropZone.addEventListener('dragleave', () => import_dropZone.classList.remove('dragover'));
+  import_dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    import_dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files.length) parseExcel(e.dataTransfer.files[0]);
+  });
+  import_fileInput.addEventListener('change', () => {
+    if (import_fileInput.files.length) parseExcel(import_fileInput.files[0]);
+  });
+
+  function parseExcel(file) {
+    import_status.className = 'imp-status info';
+    import_status.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Parsing file...';
+    import_uploadBtn.disabled = true;
+    import_preview.style.display = 'none';
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const wb = XLSX.read(e.target.result, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        if (rows.length < 2) {
+          import_status.className = 'imp-status error';
+          import_status.textContent = 'File has no data rows.';
+          return;
+        }
+        // Map Excel columns to master format: [stock_id, item_name, uom, item_group, cost, last_supplier, product_status]
+        // Excel order: A=Product Name, B=Product Type, C=Product Status, D=SKU Code, E=Brand, F=Category, G=Supplier, H=UOM, I=Cost Price, J=Selling Price, K=Actual Stock
+        const header = rows[0];
+        // Find column indices by header name
+        function colIdx(name) {
+          for (let i = 0; i < header.length; i++) {
+            if (String(header[i]).toLowerCase().trim() === name.toLowerCase().trim()) return i;
+          }
+          return -1;
+        }
+        const idxProduct = colIdx('Product Name');
+        const idxType = colIdx('Product Type');
+        const idxStatus = colIdx('Product Status');
+        const idxSKU = colIdx('SKU Code');
+        const idxSupplier = colIdx('Supplier');
+        const idxUOM = colIdx('UOM');
+        const idxCost = colIdx('Cost Price');
+        const idxStock = colIdx('Actual Stock');
+
+        if (idxSKU < 0 || idxProduct < 0) {
+          import_status.className = 'imp-status error';
+          import_status.textContent = 'Missing required columns: SKU Code and/or Product Name.';
+          return;
+        }
+
+        const mapped = [];
+        for (let r = 1; r < rows.length; r++) {
+          const row = rows[r];
+          if (!row || !row[idxSKU]) continue;
+          const group = [row[idxType] || '', row[5] !== undefined ? row[5] : ''].filter(Boolean).join(' | ');
+          mapped.push([
+            String(row[idxSKU]).trim(),           // stock_id
+            String(row[idxProduct] || '').trim(),  // item_name
+            String(idxUOM >= 0 ? row[idxUOM] : '').trim(),        // uom
+            group || 'General',                    // item_group
+            String(idxCost >= 0 ? row[idxCost] : '0'),            // cost
+            String(idxSupplier >= 0 ? row[idxSupplier] : '').trim(), // last_supplier
+            String(idxStatus >= 0 ? row[idxStatus] : 'Available').trim(), // product_status
+            String(idxStock >= 0 ? row[idxStock] : '0').trim()     // current_stock
+          ]);
+        }
+
+        if (mapped.length === 0) {
+          import_status.className = 'imp-status error';
+          import_status.textContent = 'No valid data rows found.';
+          return;
+        }
+
+        import_parsedData = mapped;
+        import_status.className = 'imp-status success';
+        import_status.innerHTML = '<i class="fa-solid fa-check"></i> Parsed <b>' + mapped.length + '</b> items. Ready to upload.';
+        import_uploadBtn.disabled = false;
+
+        // Show preview (first 5 rows)
+        const preview = mapped.slice(0, 5);
+        let html = '<table><thead><tr><th>Stock ID</th><th>Item Name</th><th>UOM</th><th>Group</th><th>Cost</th><th>Supplier</th><th>Status</th><th>Stock</th></tr></thead><tbody>';
+        preview.forEach(r => {
+          html += '<tr>' + r.map(c => '<td>' + c + '</td>').join('') + '</tr>';
+        });
+        if (mapped.length > 5) html += '<tr><td colspan="8" style="text-align:center;color:#94a3b8;">... and ' + (mapped.length - 5) + ' more rows</td></tr>';
+        html += '</tbody></table>';
+        import_preview.innerHTML = html;
+        import_preview.style.display = 'block';
+
+      } catch (err) {
+        import_status.className = 'imp-status error';
+        import_status.textContent = 'Parse error: ' + err.message;
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function importExcel() {
+    if (!import_parsedData || import_parsedData.length === 0) return;
+    if (!confirm('This will REPLACE all existing master data with ' + import_parsedData.length + ' items. Continue?')) return;
+
+    import_status.className = 'imp-status info';
+    import_status.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading...';
+    import_uploadBtn.disabled = true;
+
+    api('POST', '/api/master/replace', import_parsedData).then(function(r) {
+      import_status.className = 'imp-status success';
+      import_status.innerHTML = '<i class="fa-solid fa-check-circle"></i> Successfully replaced master data with ' + import_parsedData.length + ' items.';
+      import_parsedData = null;
+      import_fileInput.value = '';
+    }).catch(function(err) {
+      import_status.className = 'imp-status error';
+      import_status.textContent = 'Upload failed: ' + err.message;
+      import_uploadBtn.disabled = false;
+    });
+  }
+</script>
+</div>
+
+    <div id="module-scan_history" class="spa-module">
+<style>
+  .sh-wrap { max-width: 100%; margin: -10px auto 0; display: flex; flex-direction: column; gap: 8px; }
+  .sh-top { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; background: white; padding: 8px 14px; border-radius: 10px; border: 1px solid #e2e8f0; }
+  .sh-top h2 { margin: 0; font-size: 1rem; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 8px; margin-right: auto; }
+  .sh-fg { display: flex; align-items: center; gap: 6px; }
+  .sh-fg label { font-size: 0.75rem; font-weight: 600; color: #64748b; white-space: nowrap; }
+  .sh-fg select, .sh-fg input { padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 0.82rem; background: #fff; }
+  .sh-btn { padding: 6px 14px; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 0.82rem; background: #008080; color: white; white-space: nowrap; }
+  .sh-box { background: white; border-radius: 10px; overflow: auto; border: 1px solid #e2e8f0; min-height: calc(100vh - 145px); max-height: calc(100vh - 145px); }
+  .sh-table { width: 100%; border-collapse: collapse; }
+  .sh-table th { position: sticky; top: 0; z-index: 1; background: #f8fafc; padding: 12px 14px; text-align: left; font-size: 0.75rem; font-weight: 700; color: #475569; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; }
+  .sh-table td { padding: 14px; border-bottom: 1px solid #f1f5f9; font-size: 0.85rem; color: #334155; }
+  .sh-summary { padding: 6px 14px; font-size: 0.8rem; color: #166534; background: #f0fdf4; border-top: 1px solid #bbf7d0; }
+</style>
+<div class="sh-wrap">
+  <div class="sh-top">
+    <h2><i class="fa-solid fa-clock-rotate-left" style="color:#008080;"></i> Scan History</h2>
+    <div class="sh-fg"><label>Group</label><select id="sh_group"><option value="">All</option><option value="pharmacy">Pharmacy</option><option value="lab">Lab</option><option value="medicalward">Med Ward</option></select></div>
+    <div class="sh-fg"><label>From</label><input type="date" id="sh_dateFrom"></div>
+    <div class="sh-fg"><label>To</label><input type="date" id="sh_dateTo"></div>
+    <div class="sh-fg"><label>Quick</label><select id="sh_quick" onchange="sh_quickSet()"><option value="">Custom</option><option value="this" selected>This Month</option><option value="last">Last Month</option></select></div>
+    <button class="sh-btn" onclick="loadScanHistory()"><i class="fa-solid fa-rotate-right"></i> Refresh</button>
+  </div>
+  <div class="sh-box">
+    <table class="sh-table">
+      <thead><tr><th>Item Name</th><th>Expiry</th><th>Qty</th><th>Location</th><th>Scanned</th></tr></thead>
+      <tbody id="sh_tbody"></tbody>
+    </table>
+    <div id="sh_summary" class="sh-summary" style="display:none;"></div>
+    <div id="sh_loader" style="text-align:center;padding:40px;color:#94a3b8;">Loading...</div>
+  </div>
+</div>
+<script>
+(function() {
+  var now = new Date();
+  document.getElementById('sh_dateFrom').value = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  document.getElementById('sh_dateTo').value = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+})();
+function sh_quickSet() {
+  var v = document.getElementById('sh_quick').value;
+  if (!v) return;
+  var now = new Date();
+  if (v === 'this') {
+    document.getElementById('sh_dateFrom').value = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    document.getElementById('sh_dateTo').value = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+  } else {
+    document.getElementById('sh_dateFrom').value = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
+    document.getElementById('sh_dateTo').value = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
+  }
+  loadScanHistory();
+}
+function loadScanHistory() {
+  var p = new URLSearchParams();
+  var g = document.getElementById('sh_group').value; if(g) p.set('group', g);
+  var df = document.getElementById('sh_dateFrom').value; if(df) p.set('dateFrom', df);
+  var dt = document.getElementById('sh_dateTo').value; if(dt) p.set('dateTo', dt);
+  document.getElementById('sh_loader').style.display = 'block';
+  document.getElementById('sh_summary').style.display = 'none';
+  api('GET', '/api/stocktake/history?'+p.toString()).then(function(rows) {
+    var tb = document.getElementById('sh_tbody');
+    document.getElementById('sh_loader').style.display = 'none';
+    if(!rows.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:30px;">No scans found for this period</td></tr>'; document.getElementById('sh_summary').style.display = 'none'; return;}
+    tb.innerHTML = rows.map(function(r){return '<tr><td style="font-weight:500;">'+r.itemName+'</td><td>'+(r.expiryDate||'-')+'</td><td>'+r.qty+'</td><td>'+r.location+'</td><td style="font-size:0.8rem;color:#64748b;">'+r.scannedAt+'</td></tr>';}).join('');
+    document.getElementById('sh_summary').style.display = 'block';
+    document.getElementById('sh_summary').innerText = rows.length + ' items scanned';
+  }).catch(function(e){document.getElementById('sh_loader').innerText='Error: '+e.message;});
+}
+loadScanHistory();
+</script>
+</div>
+
+    <div id="module-order_list" class="spa-module">
+<style>
+  .ol-wrap { max-width: 100%; margin: -10px auto 0; display: flex; flex-direction: column; gap: 8px; }
+  .ol-top { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; background: white; padding: 8px 14px; border-radius: 10px; border: 1px solid #e2e8f0; }
+  .ol-top h2 { margin: 0; font-size: 1rem; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 8px; margin-right: auto; }
+  .ol-fg { display: flex; align-items: center; gap: 6px; }
+  .ol-fg label { font-size: 0.75rem; font-weight: 600; color: #64748b; white-space: nowrap; }
+  .ol-fg select, .ol-fg input { padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 0.82rem; background: #fff; }
+  .ol-btn { padding: 6px 14px; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 0.82rem; background: #2c3e50; color: white; white-space: nowrap; }
+  .ol-box { background: white; border-radius: 10px; overflow: auto; border: 1px solid #e2e8f0; min-height: calc(100vh - 145px); max-height: calc(100vh - 145px); }
+  .ol-table { width: 100%; border-collapse: collapse; min-width: 900px; }
+  .ol-table th { position: sticky; top: 0; z-index: 1; background: #f8fafc; padding: 12px 14px; text-align: left; font-size: 0.75rem; font-weight: 700; color: #475569; text-transform: uppercase; border-bottom: 2px solid #e2e8f0; white-space: nowrap; }
+  .ol-table td { padding: 16px 14px; border-bottom: 1px solid #f1f5f9; font-size: 0.85rem; color: #334155; vertical-align: middle; }
+  .ol-tick { display: inline-flex; align-items: center; gap: 3px; cursor: pointer; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
+  .ol-tick-off { background: #f1f5f9; color: #94a3b8; }
+  .ol-tick-on { background: #dcfce7; color: #166534; }
+  .ol-tick:hover { opacity: 0.8; }
+</style>
+<div class="ol-wrap">
+  <div class="ol-top">
+    <h2><i class="fa-solid fa-list-check" style="color:#2c3e50;"></i> Order Workflow</h2>
+    <div class="ol-fg"><label>Dept</label><select id="ol_dept"><option value="">All</option><option value="Lab">Lab</option><option value="Pharmacy">Pharmacy</option><option value="Medical Ward">Med Ward</option><option value="Surgical Ward">Surg Ward</option></select></div>
+    <div class="ol-fg"><label>From</label><input type="date" id="ol_dateFrom"></div>
+    <div class="ol-fg"><label>To</label><input type="date" id="ol_dateTo"></div>
+    <button class="ol-btn" onclick="loadOrderList()"><i class="fa-solid fa-rotate-right"></i> Refresh</button>
+  </div>
+  <div class="ol-box">
+    <table class="ol-table">
+      <thead><tr><th>PRF No</th><th>Dept</th><th>Item</th><th>Qty</th><th>UOM</th><th>Cost</th><th>Ordered</th><th style="text-align:center;">Order ✓</th><th style="text-align:center;">Paid ✓</th><th style="text-align:center;">Recv'd ✓</th></tr></thead>
+      <tbody id="ol_tbody"></tbody>
+    </table>
+    <div id="ol_loader" style="text-align:center;padding:40px;color:#94a3b8;">Loading...</div>
+  </div>
+</div>
+<script>
+var OL_CURRENT_USER = '';
+function loadOrderList() {
+  var params = new URLSearchParams();
+  var d = document.getElementById('ol_dept').value;
+  var df = document.getElementById('ol_dateFrom').value;
+  var dt = document.getElementById('ol_dateTo').value;
+  if(d) params.set('department', d);
+  if(df) params.set('dateFrom', df);
+  if(dt) params.set('dateTo', dt);
+  document.getElementById('ol_loader').style.display = 'block';
+  document.getElementById('ol_loader').innerText = 'Loading...';
+  api('GET', '/api/auth/me').then(function(u) { OL_CURRENT_USER = u.email||''; })
+    .catch(function(){})
+    .finally(function() {
+      api('GET', '/api/order/list?' + params.toString()).then(function(rows) {
+        var tbody = document.getElementById('ol_tbody');
+        document.getElementById('ol_loader').style.display = 'none';
+        if(!rows.length) { tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:30px;">No orders found</td></tr>'; return; }
+        tbody.innerHTML = rows.map(function(r) {
+          var ot = r.orderTickAt ? '<span class="ol-tick ol-tick-on" onclick="olTick('+r.id+',\'order\',this)"><i class="fa-solid fa-check"></i> '+r.orderTickAt+'</span>' : '<span class="ol-tick ol-tick-off" onclick="olTick('+r.id+',\'order\',this)"><i class="fa-regular fa-clock"></i> Tick</span>';
+          var pt = r.paymentTickAt ? '<span class="ol-tick ol-tick-on" onclick="olTick('+r.id+',\'payment\',this)"><i class="fa-solid fa-check"></i> '+r.paymentTickAt+'</span>' : '<span class="ol-tick ol-tick-off" onclick="olTick('+r.id+',\'payment\',this)"><i class="fa-regular fa-clock"></i> Tick</span>';
+          var rt = r.receivedTickAt ? '<span class="ol-tick ol-tick-on" onclick="olTick('+r.id+',\'received\',this)"><i class="fa-solid fa-check"></i> '+r.receivedTickAt+'</span>' : '<span class="ol-tick ol-tick-off" onclick="olTick('+r.id+',\'received\',this)"><i class="fa-regular fa-clock"></i> Tick</span>';
+          return '<tr><td style="font-family:monospace;font-weight:600;">'+r.prfNo+'</td><td><span class="badge-dept">'+r.department+'</span></td><td style="font-weight:500;">'+r.itemName+'</td><td>'+r.qty+'</td><td>'+r.uom+'</td><td>RM '+(r.totalCost||0).toFixed(2)+'</td><td style="font-size:0.8rem;color:#64748b;">'+r.orderedAt+'</td><td style="text-align:center;">'+ot+'</td><td style="text-align:center;">'+pt+'</td><td style="text-align:center;">'+rt+'</td></tr>';
+        }).join('');
+      }).catch(function(e) { document.getElementById('ol_loader').innerText = 'Error: ' + e.message; });
+    });
+}
+
+function olTick(id, field, el) {
+  // Only master admin can override existing ticks
+  if(el.classList.contains('ol-tick-on') && OL_CURRENT_USER !== 'kisame350@gmail.com') {
+    // Check against MASTER_ADMINS list — just allow for now, server validates
+  }
+  api('POST', '/api/order/tick', {id: id, field: field}).then(function(r) {
+    loadOrderList();
+  }).catch(function(e) {
+    alert('Error: ' + e.message);
+  });
+}
+</script>
+</div>
+
+  </div>
+</div>
+
+<div id="pw-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10000;align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:10px;padding:30px;max-width:360px;width:90%;box-shadow:0 10px 40px rgba(0,0,0,0.2);">
+    <h3 style="margin:0 0 20px;font-size:1.1rem;">Change Password</h3>
+    <input type="password" id="pw_old" placeholder="Current password" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:6px;margin-bottom:10px;box-sizing:border-box;">
+    <input type="password" id="pw_new1" placeholder="New password (min 6)" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:6px;margin-bottom:10px;box-sizing:border-box;">
+    <input type="password" id="pw_new2" placeholder="Confirm new password" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:6px;margin-bottom:16px;box-sizing:border-box;">
+    <div id="pw_error" style="color:#dc2626;font-size:0.85rem;margin-bottom:12px;display:none;"></div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="doChangePassword()" style="flex:1;padding:10px;background:#008080;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;">Save</button>
+      <button onclick="document.getElementById('pw-modal').style.display='none'" style="flex:1;padding:10px;background:#e2e8f0;color:#475569;border:none;border-radius:6px;font-weight:600;cursor:pointer;">Cancel</button>
+    </div>
   </div>
 </div>
 
@@ -2947,9 +3608,11 @@ function api(method, path, body) {
 function switchTab(moduleId) {
   var titles = {
     'dashboard': 'Dashboard', 'lab_order': 'Lab Order', 'pharmacy_order': 'Pharmacy Order',
-    'indent_form': 'Indent Form', 'specification_form': 'New Item Request',
-    'grn': 'GRN Entry', 'stock_take': 'Stock Take', 'stock_disposal': 'Disposal',
-    'stock_analysis': 'Variance Analysis', 'expiry_tracking': 'Expiry Tracking'
+    'medical_ward_order': 'Medical Ward Order', 'surgical_ward_order': 'Surgical Ward Order',
+    'indent_form': 'Indent Form', 'specification_form': 'New Item Request', 'order_list': 'Order List',
+    'grn': 'GRN Entry', 'stock_take': 'Stock Take', 'scan_history': 'Scan History', 'stock_disposal': 'Disposal',
+    'stock_analysis': 'Variance Analysis', 'expiry_tracking': 'Expiry Tracking',
+    'import_data': 'Import Master Data', 'users': 'User Management'
   };
   document.getElementById('pageTitleDisplay').innerText = titles[moduleId] || moduleId;
 
@@ -2973,73 +3636,93 @@ function toggleSidebar() {
 }
 
 // Auth
-function handleLogin() {
-  var email = prompt('Email:');
-  var password = prompt('Password:');
-  if (!email || !password) return;
-  api('POST', '/api/auth/login', { email: email, password: password }).then(function(r) {
-    if (r.success) {
-      loadUser();
-      alert('Logged in!');
-    } else {
-      alert('Login failed: ' + r.message);
-    }
-  });
+function showLogin() {
+  document.getElementById('login-overlay').style.display = 'flex';
+  document.getElementById('sidebar').style.display = 'none';
+  document.querySelector('.main-wrapper').style.display = 'none';
 }
+function hideLogin() {
+  document.getElementById('login-overlay').style.display = 'none';
+  document.getElementById('sidebar').style.display = '';
+  document.querySelector('.main-wrapper').style.display = '';
+}
+function doLogin() {
+  var email = document.getElementById('login_email').value.trim();
+  var password = document.getElementById('login_password').value;
+  if (!email || !password) return;
+  var btn = document.getElementById('login_btn');
+  var err = document.getElementById('login_error');
+  btn.disabled = true; btn.innerText = 'Signing in...'; err.style.display = 'none';
+  api('POST', '/api/auth/login', { email: email, password: password }).then(function(r) {
+    if (r.success) { loadUser(); hideLogin(); }
+    else { err.innerText = r.message || 'Login failed'; err.style.display = 'block'; }
+  }).catch(function(e) {
+    err.innerText = 'Connection error: ' + e.message; err.style.display = 'block';
+  }).finally(function() { btn.disabled = false; btn.innerText = 'Sign In'; });
+}
+// Allow Enter key to submit
+document.getElementById('login_password').addEventListener('keydown', function(e) { if (e.key === 'Enter') doLogin(); });
 
 function handleLogout() {
   api('POST', '/api/auth/logout').then(function(r) {
-    document.getElementById('userEmail').innerText = 'Logged out';
-    alert('Logged out');
+    showLogin();
   });
 }
 
 function loadUser() {
   api('GET', '/api/auth/me').then(function(r) {
     document.getElementById('userEmail').innerText = r.email || 'Not logged in';
+    document.getElementById('userActions').style.display = '';
+    // Show admin-only nav items
+    var isAdmin = r.role === 'admin';
+    document.querySelectorAll('.admin-only').forEach(function(el) { el.style.display = isAdmin ? '' : 'none'; });
+    hideLogin();
   }).catch(function() {
     document.getElementById('userEmail').innerText = 'Not logged in';
+    document.getElementById('userActions').style.display = 'none';
+    document.querySelectorAll('.admin-only').forEach(function(el) { el.style.display = 'none'; });
+    showLogin();
   });
 }
 
 // Module loading
 function loadModule(name) {
-  if (name === 'dashboard') loadDashboard();
-}
-
-function loadDashboard() {
-  api('GET', '/api/dashboard/summary').then(function(r) {
-    var html = '<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap:15px;">';
-    html += statCard('Total Items', r.stats.totalItems, '#008080');
-    html += statCard('Low Stock', r.stats.lowStock, '#f59e0b');
-    html += statCard('Pending Requests', r.stats.pendingRequests, '#3b82f6');
-    html += statCard('Expiry Critical', r.stats.expiryCritical, '#ef4444');
-    html += statCard('Pending Specs', r.stats.pendingSpecs, '#8b5cf6');
-    html += '</div>';
-    document.getElementById('dashboard-content').innerHTML = html;
-  }).catch(function() {
-    document.getElementById('dashboard-content').innerHTML = '<p style="color:red;">Failed to load dashboard. Make sure you are logged in.</p>';
-  });
-}
-
-function statCard(label, value, color) {
-  return '<div style="background:white; border-radius:8px; padding:15px; box-shadow:0 1px 3px rgba(0,0,0,0.1);">' +
-    '<div style="font-size:0.8rem; color:#6b7280;">' + label + '</div>' +
-    '<div style="font-size:1.8rem; font-weight:700; color:' + color + ';">' + value + '</div></div>';
+  if (name === 'dashboard' && typeof loadDashboard === 'function') loadDashboard();
+  if (name === 'scan_history' && typeof loadScanHistory === 'function') loadScanHistory();
+  if (name === 'order_list' && typeof loadOrderList === 'function') loadOrderList();
+  if (name === 'users' && typeof usr_load === 'function') usr_load();
 }
 
 // Init
 loadUser();
-loadDashboard();
 
-// Show login prompt if user clicks user display
-document.getElementById('userDisplay').addEventListener('click', function() {
-  var emailSpan = document.getElementById('userEmail');
-  if (emailSpan.innerText === 'Not logged in' || emailSpan.innerText === 'Logged out' || emailSpan.innerText === '...') {
-    handleLogin();
-  }
-});
-document.getElementById('userDisplay').style.cursor = 'pointer';
+function showChangePassword() {
+  document.getElementById('pw-modal').style.display = 'flex';
+  document.getElementById('pw_old').value = '';
+  document.getElementById('pw_new1').value = '';
+  document.getElementById('pw_new2').value = '';
+  document.getElementById('pw_error').style.display = 'none';
+}
+function doChangePassword() {
+  var old = document.getElementById('pw_old').value;
+  var n1 = document.getElementById('pw_new1').value;
+  var n2 = document.getElementById('pw_new2').value;
+  var err = document.getElementById('pw_error');
+  if (!old || !n1) { err.innerText = 'Fill all fields'; err.style.display = 'block'; return; }
+  if (n1.length < 6) { err.innerText = 'New password too short (min 6)'; err.style.display = 'block'; return; }
+  if (n1 !== n2) { err.innerText = 'Passwords do not match'; err.style.display = 'block'; return; }
+  fetch('/pims/api/auth/change-password', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({oldPassword: old, newPassword: n1})
+  }).then(function(r) { return r.json().then(function(data) { if (!r.ok) throw new Error(data.message || 'Failed'); return data; }); })
+  .then(function() {
+    alert('Password changed successfully');
+    document.getElementById('pw-modal').style.display = 'none';
+  }).catch(function(e) {
+    err.innerText = e.message; err.style.display = 'block';
+  });
+}
 </script>
 </body>
 </html>
