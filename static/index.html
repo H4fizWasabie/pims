@@ -1900,7 +1900,7 @@
       category: cat,
       type: type,
       specs: specs,
-      estCost: document.getElementById('spec_estCost').value || "0",
+      estCost: parseFloat(document.getElementById('spec_estCost').value) || 0,
       uom: document.getElementById('spec_uom').value || "-",
       usage: document.getElementById('spec_usage').value || "0",
       link: document.getElementById('spec_link').value || "-",
