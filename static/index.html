@@ -1629,7 +1629,9 @@
     const matches = INDENT_MASTER_DATA.filter(item => item.itemName.toLowerCase().includes(query) || item.stockId.toLowerCase().includes(query)).slice(0, 10);
 
     if (matches.length === 0) {
-      indent_resultsBox.innerHTML = '<div style="padding:10px; color:#888;">No items found.</div>';
+      indent_resultsBox.innerHTML = `<div onclick="indent_addCustom('${query.replace(/'/g, "\\'")}')" style="padding:12px; cursor:pointer; color:#7c3aed; font-weight:600; border-bottom:1px solid #eee;">
+        <i class="fa-solid fa-plus"></i> Add "${query.replace(/"/g, '&quot;')}" as custom item
+      </div>`;
       return;
     }
 
@@ -1648,6 +1650,13 @@
       div.onclick = () => indent_selectItem(item);
       indent_resultsBox.appendChild(div);
     });
+
+    const customDiv = document.createElement('div');
+    customDiv.style.padding = '10px'; customDiv.style.cursor = 'pointer'; customDiv.style.borderTop = '2px solid #e2e8f0';
+    customDiv.style.color = '#7c3aed'; customDiv.style.fontWeight = '600'; customDiv.style.textAlign = 'center';
+    customDiv.innerHTML = `<i class="fa-solid fa-plus"></i> Not found? Add "${query.replace(/"/g, '&quot;')}" as custom item`;
+    customDiv.onclick = () => indent_addCustom(query);
+    indent_resultsBox.appendChild(customDiv);
   });
 
   function indent_selectItem(item) {
@@ -1665,6 +1674,14 @@
 
     indent_resultsBox.style.display = 'none';
     document.getElementById('indent_qtyInput').focus();
+  }
+
+  function indent_addCustom(name) {
+    const customItem = {
+      itemName: name, stockId: 'NEW-' + Date.now().toString(36).toUpperCase(),
+      uom: 'EA', currentStock: 0
+    };
+    indent_selectItem(customItem);
   }
 
   document.addEventListener('click', (e) => {
@@ -2584,7 +2601,7 @@
         uom: finalData.uom || 'N/A',
         group: 'N/A',
         cost: finalData.cost || 0,
-        qty: finalData.qty,
+        qty: parseFloat(finalData.qty) || 0,
         batch: finalData.batch || '',
         expiry: finalData.expiry || ''
       };
@@ -3449,6 +3466,7 @@ usr_load();
     <div class="sh-fg"><label>From</label><input type="date" id="sh_dateFrom"></div>
     <div class="sh-fg"><label>To</label><input type="date" id="sh_dateTo"></div>
     <div class="sh-fg"><label>Quick</label><select id="sh_quick" onchange="sh_quickSet()"><option value="">Custom</option><option value="this" selected>This Month</option><option value="last">Last Month</option></select></div>
+    <div class="sh-fg"><label>Search</label><input type="text" id="sh_search" placeholder="Item name..." oninput="renderScanHistory()"></div>
     <button class="sh-btn" onclick="loadScanHistory()"><i class="fa-solid fa-rotate-right"></i> Refresh</button>
   </div>
   <div class="sh-box">
@@ -3479,6 +3497,7 @@ function sh_quickSet() {
   }
   loadScanHistory();
 }
+var SH_ROWS = [];
 function loadScanHistory() {
   var p = new URLSearchParams();
   var g = document.getElementById('sh_group').value; if(g) p.set('group', g);
@@ -3487,13 +3506,19 @@ function loadScanHistory() {
   document.getElementById('sh_loader').style.display = 'block';
   document.getElementById('sh_summary').style.display = 'none';
   api('GET', '/api/stocktake/history?'+p.toString()).then(function(rows) {
-    var tb = document.getElementById('sh_tbody');
+    SH_ROWS = rows;
     document.getElementById('sh_loader').style.display = 'none';
-    if(!rows.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:30px;">No scans found for this period</td></tr>'; document.getElementById('sh_summary').style.display = 'none'; return;}
-    tb.innerHTML = rows.map(function(r){return '<tr><td style="font-weight:500;">'+r.itemName+'</td><td>'+(r.expiryDate||'-')+'</td><td>'+r.qty+'</td><td>'+r.location+'</td><td style="font-size:0.8rem;color:#64748b;">'+r.scannedAt+'</td></tr>';}).join('');
-    document.getElementById('sh_summary').style.display = 'block';
-    document.getElementById('sh_summary').innerText = rows.length + ' items scanned';
+    renderScanHistory();
   }).catch(function(e){document.getElementById('sh_loader').innerText='Error: '+e.message;});
+}
+function renderScanHistory() {
+  var q = (document.getElementById('sh_search').value || '').toLowerCase();
+  var rows = q ? SH_ROWS.filter(function(r){ return (r.itemName||'').toLowerCase().indexOf(q) !== -1; }) : SH_ROWS;
+  var tb = document.getElementById('sh_tbody');
+  if(!rows.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:30px;">No scans found</td></tr>'; document.getElementById('sh_summary').style.display = 'none'; return;}
+  tb.innerHTML = rows.map(function(r){return '<tr><td style="font-weight:500;">'+r.itemName+'</td><td>'+(r.expiryDate||'-')+'</td><td>'+r.qty+'</td><td>'+r.location+'</td><td style="font-size:0.8rem;color:#64748b;">'+r.scannedAt+'</td></tr>';}).join('');
+  document.getElementById('sh_summary').style.display = 'block';
+  document.getElementById('sh_summary').innerText = rows.length + ' items scanned' + (q ? ' (filtered from '+SH_ROWS.length+')' : '');
 }
 loadScanHistory();
 </script>
@@ -3523,6 +3548,7 @@ loadScanHistory();
     <div class="ol-fg"><label>Dept</label><select id="ol_dept"><option value="">All</option><option value="Lab">Lab</option><option value="Pharmacy">Pharmacy</option><option value="Medical Ward">Med Ward</option><option value="Surgical Ward">Surg Ward</option></select></div>
     <div class="ol-fg"><label>From</label><input type="date" id="ol_dateFrom"></div>
     <div class="ol-fg"><label>To</label><input type="date" id="ol_dateTo"></div>
+    <div class="ol-fg"><label>Search</label><input type="text" id="ol_search" placeholder="Item or PRF..." oninput="renderOrderList()"></div>
     <button class="ol-btn" onclick="loadOrderList()"><i class="fa-solid fa-rotate-right"></i> Refresh</button>
   </div>
   <div class="ol-box">
@@ -3535,6 +3561,7 @@ loadScanHistory();
 </div>
 <script>
 var OL_CURRENT_USER = '';
+var OL_ROWS = [];
 function loadOrderList() {
   var params = new URLSearchParams();
   var d = document.getElementById('ol_dept').value;
@@ -3549,17 +3576,23 @@ function loadOrderList() {
     .catch(function(){})
     .finally(function() {
       api('GET', '/api/order/list?' + params.toString()).then(function(rows) {
-        var tbody = document.getElementById('ol_tbody');
+        OL_ROWS = rows;
         document.getElementById('ol_loader').style.display = 'none';
-        if(!rows.length) { tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:30px;">No orders found</td></tr>'; return; }
-        tbody.innerHTML = rows.map(function(r) {
-          var ot = r.orderTickAt ? '<span class="ol-tick ol-tick-on" onclick="olTick('+r.id+',\'order\',this)"><i class="fa-solid fa-check"></i> '+r.orderTickAt+'</span>' : '<span class="ol-tick ol-tick-off" onclick="olTick('+r.id+',\'order\',this)"><i class="fa-regular fa-clock"></i> Tick</span>';
-          var pt = r.paymentTickAt ? '<span class="ol-tick ol-tick-on" onclick="olTick('+r.id+',\'payment\',this)"><i class="fa-solid fa-check"></i> '+r.paymentTickAt+'</span>' : '<span class="ol-tick ol-tick-off" onclick="olTick('+r.id+',\'payment\',this)"><i class="fa-regular fa-clock"></i> Tick</span>';
-          var rt = r.receivedTickAt ? '<span class="ol-tick ol-tick-on" onclick="olTick('+r.id+',\'received\',this)"><i class="fa-solid fa-check"></i> '+r.receivedTickAt+'</span>' : '<span class="ol-tick ol-tick-off" onclick="olTick('+r.id+',\'received\',this)"><i class="fa-regular fa-clock"></i> Tick</span>';
-          return '<tr><td style="font-family:monospace;font-weight:600;">'+r.prfNo+'</td><td><span class="badge-dept">'+r.department+'</span></td><td style="font-weight:500;">'+r.itemName+'</td><td>'+r.qty+'</td><td>'+r.uom+'</td><td>RM '+(r.totalCost||0).toFixed(2)+'</td><td style="font-size:0.8rem;color:#64748b;">'+r.orderedAt+'</td><td style="text-align:center;">'+ot+'</td><td style="text-align:center;">'+pt+'</td><td style="text-align:center;">'+rt+'</td></tr>';
-        }).join('');
+        renderOrderList();
       }).catch(function(e) { document.getElementById('ol_loader').innerText = 'Error: ' + e.message; });
     });
+}
+function renderOrderList() {
+  var q = (document.getElementById('ol_search').value || '').toLowerCase();
+  var rows = q ? OL_ROWS.filter(function(r){ return (r.itemName||'').toLowerCase().indexOf(q) !== -1 || (r.prfNo||'').toLowerCase().indexOf(q) !== -1; }) : OL_ROWS;
+  var tbody = document.getElementById('ol_tbody');
+  if(!rows.length) { tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:30px;">No orders found</td></tr>'; return; }
+  tbody.innerHTML = rows.map(function(r) {
+    var ot = r.orderTickAt ? '<span class="ol-tick ol-tick-on" onclick="olTick('+r.id+',\'order\',this)"><i class="fa-solid fa-check"></i> '+r.orderTickAt+'</span>' : '<span class="ol-tick ol-tick-off" onclick="olTick('+r.id+',\'order\',this)"><i class="fa-regular fa-clock"></i> Tick</span>';
+    var pt = r.paymentTickAt ? '<span class="ol-tick ol-tick-on" onclick="olTick('+r.id+',\'payment\',this)"><i class="fa-solid fa-check"></i> '+r.paymentTickAt+'</span>' : '<span class="ol-tick ol-tick-off" onclick="olTick('+r.id+',\'payment\',this)"><i class="fa-regular fa-clock"></i> Tick</span>';
+    var rt = r.receivedTickAt ? '<span class="ol-tick ol-tick-on" onclick="olTick('+r.id+',\'received\',this)"><i class="fa-solid fa-check"></i> '+r.receivedTickAt+'</span>' : '<span class="ol-tick ol-tick-off" onclick="olTick('+r.id+',\'received\',this)"><i class="fa-regular fa-clock"></i> Tick</span>';
+    return '<tr><td style="font-family:monospace;font-weight:600;">'+r.prfNo+'</td><td><span class="badge-dept">'+r.department+'</span></td><td style="font-weight:500;">'+r.itemName+'</td><td>'+r.qty+'</td><td>'+r.uom+'</td><td>RM '+(r.totalCost||0).toFixed(2)+'</td><td style="font-size:0.8rem;color:#64748b;">'+r.orderedAt+'</td><td style="text-align:center;">'+ot+'</td><td style="text-align:center;">'+pt+'</td><td style="text-align:center;">'+rt+'</td></tr>';
+  }).join('');
 }
 
 function olTick(id, field, el) {
@@ -3645,6 +3678,7 @@ function hideLogin() {
   document.getElementById('login-overlay').style.display = 'none';
   document.getElementById('sidebar').style.display = '';
   document.querySelector('.main-wrapper').style.display = '';
+  switchTab('dashboard');
 }
 function doLogin() {
   var email = document.getElementById('login_email').value.trim();
