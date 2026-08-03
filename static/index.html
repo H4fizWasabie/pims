@@ -3266,7 +3266,6 @@ function usr_del(id, btn) {
     usr_load();
   }).catch(function(e) { alert('Error: '+e.message); });
 }
-usr_load();
 </script>
 </div>
 
@@ -3520,7 +3519,6 @@ function renderScanHistory() {
   document.getElementById('sh_summary').style.display = 'block';
   document.getElementById('sh_summary').innerText = rows.length + ' items scanned' + (q ? ' (filtered from '+SH_ROWS.length+')' : '');
 }
-loadScanHistory();
 </script>
 </div>
 
