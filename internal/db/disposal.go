@@ -72,7 +72,7 @@ func SubmitDisposal(d *sql.DB, data *DisposalSubmit, userEmail string) error {
 
 	// Update expiry tracking remarks — non-fatal
 	tx.Exec(
-		`UPDATE expiry_tracking SET remarks = CONCAT('DISPOSED ', $3::text, ' (', $4, ') | ', COALESCE(remarks, ''))
+		`UPDATE expiry_tracking SET remarks = CONCAT('DISPOSED ', $3::text, ' (', $4::text, ') | ', COALESCE(remarks, ''))
 		 WHERE stock_id = $1 AND batch_no = $2`,
 		data.StockID, data.Batch, data.Qty, data.Reason)
 

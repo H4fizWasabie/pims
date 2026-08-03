@@ -82,7 +82,7 @@ func main() {
 	mux.HandleFunc("/api/spec/reject", handler.Recover(h.AuthMiddleware(h.HandleSpecReject)))
 
 	// Dashboard
-	mux.HandleFunc("/api/dashboard/summary", handler.Recover(h.HandleDashboardSummary))
+	mux.HandleFunc("/api/dashboard/summary", handler.Recover(h.AuthMiddleware(h.HandleDashboardSummary)))
 
 	// Users (admin only)
 	mux.HandleFunc("/api/users", handler.Recover(h.AdminMiddleware(h.HandleUsersList)))

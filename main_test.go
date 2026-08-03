@@ -52,9 +52,9 @@ func newTestServer(t *testing.T) *testServer {
 		OpenRouterAPIKey: os.Getenv("OPENROUTER_API_KEY"),
 		OpenRouterModel: "google/gemma-4-31b-it:free",
 		GeminiAPIKey:    os.Getenv("GEMINI_API_KEY"),
-		IndentApprovers: []string{"approver@test.com", "kisame350@gmail.com"},
-		SpecApprovers:   []string{"spec@test.com", "kisame350@gmail.com"},
-		MasterAdmins:    []string{"admin@test.com", "kisame350@gmail.com"},
+		IndentApprovers: []string{"admin@pims.local", "approver@test.com", "kisame350@gmail.com"},
+		SpecApprovers:   []string{"admin@pims.local", "spec@test.com", "kisame350@gmail.com"},
+		MasterAdmins:    []string{"admin@pims.local", "admin@test.com", "kisame350@gmail.com"},
 	}
 
 	h := &handler.Handler{DB: database, Cfg: cfg}
@@ -86,7 +86,7 @@ func newTestServer(t *testing.T) *testServer {
 	mux.HandleFunc("/api/spec/submit", handler.Recover(h.AuthMiddleware(h.HandleSpecSubmit)))
 	mux.HandleFunc("/api/spec/approve", handler.Recover(h.AuthMiddleware(h.HandleSpecApprove)))
 	mux.HandleFunc("/api/spec/reject", handler.Recover(h.AuthMiddleware(h.HandleSpecReject)))
-	mux.HandleFunc("/api/dashboard/summary", handler.Recover(h.HandleDashboardSummary))
+	mux.HandleFunc("/api/dashboard/summary", handler.Recover(h.AuthMiddleware(h.HandleDashboardSummary)))
 	mux.HandleFunc("/api/order/prf-number", handler.Recover(h.AuthMiddleware(h.HandleOrderPRFNumber)))
 	mux.HandleFunc("/api/order/generate", handler.Recover(h.AuthMiddleware(h.HandleOrderGenerate)))
 
@@ -196,6 +196,8 @@ func TestAuthLogin(t *testing.T) {
 	resp := ts.get("/api/auth/me", cookie)
 	assertStatus(t, resp, 200)
 	assertJSONKey(t, resp, "email", "admin@pims.local")
+	// re-request: assertJSONKey consumes the body
+	resp = ts.get("/api/auth/me", cookie)
 	assertJSONKey(t, resp, "role", "admin")
 
 	// Bad login
@@ -227,7 +229,11 @@ func TestMasterItems(t *testing.T) {
 	// Get all
 	resp = ts.get("/api/master/all", cookie)
 	assertStatus(t, resp, 200)
-	assertJSONKey(t, resp, "0", nil) // just check it returns array
+	var master []map[string]any
+	json.NewDecoder(resp.Body).Decode(&master)
+	if len(master) == 0 {
+		t.Errorf("master/all: expected items, got %d", len(master))
+	}
 
 	// Search
 	resp = ts.get("/api/master/search?q=para", cookie)
@@ -477,7 +483,13 @@ func TestOrderPRF(t *testing.T) {
 
 	resp := ts.get("/api/order/prf-number", cookie)
 	assertStatus(t, resp, 200)
-	assertJSONKey(t, resp, "prfNo", nil) // just check key exists
+	var prf struct {
+		PrfNo string `json:"prfNo"`
+	}
+	json.NewDecoder(resp.Body).Decode(&prf)
+	if prf.PrfNo == "" {
+		t.Errorf("prfNo: expected non-empty PRF number")
+	}
 
 	// Test order generate (PDF deferred, returns PRF number)
 	orderData := map[string]any{
@@ -536,8 +548,8 @@ func TestUnauthorizedAccess(t *testing.T) {
 	assertStatus(t, resp, 401)
 
 	// Non-admin trying admin endpoint
-	// First create a regular user
-	ts.db.Exec(`INSERT INTO users (email, password_hash, role) VALUES ('user@test.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'user') ON CONFLICT DO NOTHING`)
+	// First create a regular user (hash below is bcrypt of "admin123")
+	ts.db.Exec(`INSERT INTO users (email, password_hash, role) VALUES ('user@test.com', '$2a$10$N6NM1w1zUprcd8vwvp/BceLfeyGv6JqcdyhS5gSntCiyM0oEWGR2S', 'user') ON CONFLICT DO NOTHING`)
 	userCookie := ts.login(t, "user@test.com", "admin123")
 
 	// Master replace requires admin

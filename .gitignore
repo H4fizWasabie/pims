@@ -7,3 +7,8 @@ pims
 # Environment
 *.env
 !*.env.example
+
+# Tool output
+.graphify/
+graphify-out/
+.codegraph/
