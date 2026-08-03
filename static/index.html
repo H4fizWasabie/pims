@@ -3629,9 +3629,11 @@ function olTick(id, field, el) {
 function api(method, path, body) {
   var opts = { method: method, headers: { 'Content-Type': 'application/json' } };
   if (body) opts.body = JSON.stringify(body);
-  return fetch('/pims' + path, opts).then(function(r) { 
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    return r.json(); 
+  return fetch('/pims' + path, opts).then(function(r) {
+    return r.json().catch(function() { return {}; }).then(function(data) {
+      if (!r.ok) throw new Error(data.message || 'HTTP ' + r.status);
+      return data;
+    });
   });
 }
 
