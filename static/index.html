@@ -754,7 +754,7 @@
     lab_resultsBox.style.display = 'block';
 
     const matches = LAB_MASTER_DATA.filter(item => item.itemName.toLowerCase().includes(query) || item.stockId.toLowerCase().includes(query)).slice(0, 10);
-    if(matches.length === 0) { lab_resultsBox.innerHTML = '<div class="lab-suggestion-item">No items found</div>'; return; }
+    if(matches.length === 0) { lab_resultsBox.innerHTML = `<div onclick="lab_addCustom('${query.replace(/'/g, "\\'")}')" style="padding:12px; cursor:pointer; color:#7c3aed; font-weight:600; border-bottom:1px solid #eee;"><i class="fa-solid fa-plus"></i> Add "${query.replace(/"/g, '&quot;')}" as custom item</div>`; return; }
 
     matches.forEach(item => {
       const div = document.createElement('div'); div.className = 'lab-suggestion-item';
@@ -783,6 +783,11 @@
 
     lab_resultsBox.style.display = 'none';
     document.getElementById('lab_qtyInput').focus();
+  }
+
+  function lab_addCustom(name) {
+    lab_selectItem({itemName: name, stockId: 'NEW-' + Date.now().toString(36).toUpperCase(), uom: 'EA', currentStock: 0, cost: '0', supplier: ''});
+    document.getElementById('lab_cost').focus();
   }
 
   document.addEventListener('click', e => { if (!lab_searchInput.contains(e.target)) lab_resultsBox.style.display = 'none'; });
@@ -1064,7 +1069,7 @@
     pharm_resultsBox.style.display = 'block';
 
     const matches = (PHARM_MASTER_DATA || []).filter(item => item.itemName.toLowerCase().includes(query) || item.stockId.toLowerCase().includes(query)).slice(0, 10);
-    if(matches.length === 0) { pharm_resultsBox.innerHTML = '<div class="pharm-suggestion-item">No items found</div>'; return; }
+    if(matches.length === 0) { pharm_resultsBox.innerHTML = `<div onclick="pharm_addCustom('${query.replace(/'/g, "\\'")}')" style="padding:12px; cursor:pointer; color:#7c3aed; font-weight:600; border-bottom:1px solid #eee;"><i class="fa-solid fa-plus"></i> Add "${query.replace(/"/g, '&quot;')}" as custom item</div>`; return; }
 
     matches.forEach(item => {
       const div = document.createElement('div'); div.className = 'pharm-suggestion-item';
@@ -1093,6 +1098,11 @@
 
     pharm_resultsBox.style.display = 'none';
     document.getElementById('pharm_qtyInput').focus();
+  }
+
+  function pharm_addCustom(name) {
+    pharm_selectItem({itemName: name, stockId: 'NEW-' + Date.now().toString(36).toUpperCase(), uom: 'EA', currentStock: 0, cost: '0', supplier: ''});
+    document.getElementById('pharm_cost').focus();
   }
 
   document.addEventListener('click', e => { if (!pharm_searchInput.contains(e.target)) pharm_resultsBox.style.display = 'none'; });
@@ -1269,7 +1279,7 @@
     if(query.length < 2) { med_resultsBox.style.display = 'none'; return; }
     med_resultsBox.style.display = 'block';
     const matches = (MED_MASTER_DATA || []).filter(item => item.itemName.toLowerCase().includes(query) || item.stockId.toLowerCase().includes(query)).slice(0, 10);
-    if(matches.length === 0) { med_resultsBox.innerHTML = '<div class="med-suggestion-item">No items found</div>'; return; }
+    if(matches.length === 0) { med_resultsBox.innerHTML = `<div onclick="med_addCustom('${query.replace(/'/g, "\\'")}')" style="padding:12px; cursor:pointer; color:#7c3aed; font-weight:600; border-bottom:1px solid #eee;"><i class="fa-solid fa-plus"></i> Add "${query.replace(/"/g, '&quot;')}" as custom item</div>`; return; }
     matches.forEach(item => {
       const div = document.createElement('div'); div.className = 'med-suggestion-item';
       const stockStyle = item.currentStock > 0 ? 'color:#059669;' : 'color:#dc2626; font-weight:bold;';
@@ -1291,6 +1301,11 @@
     else { stockDisp.style.color = '#1f2937'; stockDisp.style.backgroundColor = '#f1f5f9'; }
     med_resultsBox.style.display = 'none';
     document.getElementById('med_qtyInput').focus();
+  }
+
+  function med_addCustom(name) {
+    med_selectItem({itemName: name, stockId: 'NEW-' + Date.now().toString(36).toUpperCase(), uom: 'EA', currentStock: 0, cost: '0', supplier: ''});
+    document.getElementById('med_cost').focus();
   }
   document.addEventListener('click', e => { if (!med_searchInput.contains(e.target)) med_resultsBox.style.display = 'none'; });
   function med_addItem() {
@@ -1421,7 +1436,7 @@
     if(query.length < 2) { surg_resultsBox.style.display = 'none'; return; }
     surg_resultsBox.style.display = 'block';
     const matches = (SURG_MASTER_DATA || []).filter(item => item.itemName.toLowerCase().includes(query) || item.stockId.toLowerCase().includes(query)).slice(0, 10);
-    if(matches.length === 0) { surg_resultsBox.innerHTML = '<div class="surg-suggestion-item">No items found</div>'; return; }
+    if(matches.length === 0) { surg_resultsBox.innerHTML = `<div onclick="surg_addCustom('${query.replace(/'/g, "\\'")}')" style="padding:12px; cursor:pointer; color:#7c3aed; font-weight:600; border-bottom:1px solid #eee;"><i class="fa-solid fa-plus"></i> Add "${query.replace(/"/g, '&quot;')}" as custom item</div>`; return; }
     matches.forEach(item => {
       const div = document.createElement('div'); div.className = 'surg-suggestion-item';
       const stockStyle = item.currentStock > 0 ? 'color:#059669;' : 'color:#dc2626; font-weight:bold;';
@@ -1443,6 +1458,11 @@
     else { stockDisp.style.color = '#1f2937'; stockDisp.style.backgroundColor = '#f1f5f9'; }
     surg_resultsBox.style.display = 'none';
     document.getElementById('surg_qtyInput').focus();
+  }
+
+  function surg_addCustom(name) {
+    surg_selectItem({itemName: name, stockId: 'NEW-' + Date.now().toString(36).toUpperCase(), uom: 'EA', currentStock: 0, cost: '0', supplier: ''});
+    document.getElementById('surg_cost').focus();
   }
   document.addEventListener('click', e => { if (!surg_searchInput.contains(e.target)) surg_resultsBox.style.display = 'none'; });
   function surg_addItem() {
