@@ -34,6 +34,7 @@ func main() {
 
 	// Auth
 	mux.HandleFunc("/api/auth/login", handler.Recover(h.HandleLogin))
+	mux.HandleFunc("/api/auth/demo", handler.Recover(h.HandleDemoLogin))
 	mux.HandleFunc("/api/auth/logout", handler.Recover(h.HandleLogout))
 	mux.HandleFunc("/api/auth/me", handler.Recover(h.HandleMe))
 	mux.HandleFunc("/api/auth/change-password", handler.Recover(h.AuthMiddleware(h.HandleChangePassword)))

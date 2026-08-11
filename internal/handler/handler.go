@@ -62,6 +62,11 @@ func (h *Handler) AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			h.Error(w, 401, "Invalid or expired session")
 			return
 		}
+		// All write routes are POST; demo sessions may only read.
+		if user.IsDemo && r.Method != http.MethodGet {
+			h.Error(w, 403, "Demo mode: read-only browsing")
+			return
+		}
 		ctx := contextWithUser(r.Context(), user)
 		next(w, r.WithContext(ctx))
 	})

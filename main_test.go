@@ -61,6 +61,7 @@ func newTestServer(t *testing.T) *testServer {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/auth/login", handler.Recover(h.HandleLogin))
+	mux.HandleFunc("/api/auth/demo", handler.Recover(h.HandleDemoLogin))
 	mux.HandleFunc("/api/auth/logout", handler.Recover(h.HandleLogout))
 	mux.HandleFunc("/api/auth/me", handler.Recover(h.HandleMe))
 	mux.HandleFunc("/api/master/chunk", handler.Recover(h.HandleMasterChunk))
@@ -207,6 +208,44 @@ func TestAuthLogin(t *testing.T) {
 	assertStatus(t, resp, 401)
 
 	// Logout
+	resp = ts.post("/api/auth/logout", "", cookie)
+	assertStatus(t, resp, 200)
+}
+
+func TestDemoReadOnly(t *testing.T) {
+	ts := newTestServer(t)
+	defer ts.Close()
+	defer ts.db.Close()
+
+	// Demo button: no credentials needed
+	resp := ts.post("/api/auth/demo", "", "")
+	assertStatus(t, resp, 200)
+	cookie := ""
+	for _, c := range resp.Header.Values("Set-Cookie") {
+		if strings.HasPrefix(c, "pims_session=") {
+			cookie = strings.Split(c, ";")[0]
+		}
+	}
+	if cookie == "" {
+		t.Fatal("no session cookie")
+	}
+
+	// Demo session is flagged
+	resp = ts.get("/api/auth/me", cookie)
+	assertStatus(t, resp, 200)
+	assertJSONKey(t, resp, "demo", true)
+
+	// Reads work
+	resp = ts.get("/api/master/chunk?page=1&size=10&search=", cookie)
+	assertStatus(t, resp, 200)
+
+	// Writes are rejected read-only
+	resp = ts.post("/api/indent/submit", mustJSON(t, map[string]any{
+		"itemName": "x", "stockId": "y", "qty": 1, "uom": "pcs", "requester": "demo",
+	}), cookie)
+	assertStatus(t, resp, 403)
+
+	// Demo can log out
 	resp = ts.post("/api/auth/logout", "", cookie)
 	assertStatus(t, resp, 200)
 }

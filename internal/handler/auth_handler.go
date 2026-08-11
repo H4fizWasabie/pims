@@ -40,6 +40,20 @@ func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	h.Success(w, "Logged in")
 }
 
+func (h *Handler) HandleDemoLogin(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		h.Error(w, 405, "Method not allowed")
+		return
+	}
+	token, err := db.CreateDemoSession(h.DB)
+	if err != nil {
+		h.Error(w, 500, "Demo unavailable, try again")
+		return
+	}
+	auth.SetSessionCookie(w, token)
+	h.Success(w, "Demo session started")
+}
+
 func (h *Handler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	if cookie, err := r.Cookie("pims_session"); err == nil {
 		auth.DeleteSession(h.DB, cookie.Value)
@@ -87,5 +101,6 @@ func (h *Handler) HandleMe(w http.ResponseWriter, r *http.Request) {
 	h.JSON(w, 200, map[string]any{
 		"email": user.Email,
 		"role":  user.Role,
+		"demo":  user.IsDemo,
 	})
 }

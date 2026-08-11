@@ -161,8 +161,16 @@
     <input type="password" id="login_password" placeholder="Password" style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:6px;font-size:1rem;margin-bottom:8px;box-sizing:border-box;" autocomplete="current-password">
     <div id="login_error" style="color:#dc2626;font-size:0.85rem;margin-bottom:12px;display:none;"></div>
     <button id="login_btn" onclick="doLogin()" style="width:100%;padding:12px;background:var(--primary);color:white;border:none;border-radius:6px;font-size:1rem;font-weight:600;cursor:pointer;">Sign In</button>
+    <div style="display:flex;align-items:center;gap:10px;margin:14px 0 10px;">
+      <div style="flex:1;height:1px;background:#e5e7eb;"></div>
+      <span style="color:#9ca3af;font-size:0.8rem;">or</span>
+      <div style="flex:1;height:1px;background:#e5e7eb;"></div>
+    </div>
+    <button onclick="doDemoLogin(this)" style="width:100%;padding:12px;background:#f59e0b;color:white;border:none;border-radius:6px;font-size:0.95rem;font-weight:600;cursor:pointer;">Explore Demo (Read-Only)</button>
   </div>
 </div>
+
+<div id="demo-banner" style="display:none;background:#f59e0b;color:#111;text-align:center;padding:7px;font-size:0.85rem;font-weight:600;">Demo Mode — read-only browsing. Data shown is the live system; sign in to make changes.</div>
 
 <div class="main-wrapper">
   <div class="top-header">
@@ -3693,6 +3701,7 @@ function showLogin() {
   document.getElementById('login-overlay').style.display = 'flex';
   document.getElementById('sidebar').style.display = 'none';
   document.querySelector('.main-wrapper').style.display = 'none';
+  document.getElementById('demo-banner').style.display = 'none';
 }
 function hideLogin() {
   document.getElementById('login-overlay').style.display = 'none';
@@ -3714,6 +3723,12 @@ function doLogin() {
     err.innerText = 'Connection error: ' + e.message; err.style.display = 'block';
   }).finally(function() { btn.disabled = false; btn.innerText = 'Sign In'; });
 }
+function doDemoLogin(btn) {
+  btn.disabled = true;
+  api('POST', '/api/auth/demo').then(function(r) {
+    if (r.success) { loadUser(); }
+  }).finally(function() { btn.disabled = false; });
+}
 // Allow Enter key to submit
 document.getElementById('login_password').addEventListener('keydown', function(e) { if (e.key === 'Enter') doLogin(); });
 
@@ -3725,8 +3740,11 @@ function handleLogout() {
 
 function loadUser() {
   api('GET', '/api/auth/me').then(function(r) {
-    document.getElementById('userEmail').innerText = r.email || 'Not logged in';
+    document.getElementById('userEmail').innerText = r.demo ? (r.email || '') + ' (Demo)' : (r.email || 'Not logged in');
     document.getElementById('userActions').style.display = '';
+    document.getElementById('demo-banner').style.display = r.demo ? 'block' : 'none';
+    var changePw = document.querySelector('#userActions a');
+    if (changePw) changePw.style.display = r.demo ? 'none' : '';
     // Show admin-only nav items
     var isAdmin = r.role === 'admin';
     document.querySelectorAll('.admin-only').forEach(function(el) { el.style.display = isAdmin ? '' : 'none'; });
@@ -3734,6 +3752,7 @@ function loadUser() {
   }).catch(function() {
     document.getElementById('userEmail').innerText = 'Not logged in';
     document.getElementById('userActions').style.display = 'none';
+    document.getElementById('demo-banner').style.display = 'none';
     document.querySelectorAll('.admin-only').forEach(function(el) { el.style.display = 'none'; });
     showLogin();
   });

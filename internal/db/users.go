@@ -14,6 +14,7 @@ type User struct {
 	Email        string
 	PasswordHash string
 	Role         string
+	IsDemo       bool
 }
 
 func CreateUser(d *sql.DB, email, password, role string) (*User, error) {
@@ -58,15 +59,42 @@ func CreateSession(d *sql.DB, userID int) (string, error) {
 func ValidateSession(d *sql.DB, token string) (*User, error) {
 	var u User
 	err := d.QueryRow(
-		`SELECT u.id, u.email, u.password_hash, u.role
+		`SELECT u.id, u.email, u.password_hash, u.role, COALESCE(s.is_demo, FALSE)
 		 FROM sessions s JOIN users u ON s.user_id = u.id
 		 WHERE s.token = $1 AND s.expires_at > NOW()`,
 		token,
-	).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Role)
+	).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Role, &u.IsDemo)
 	if err != nil {
 		return nil, err
 	}
 	return &u, nil
+}
+
+// CreateDemoSession seeds a demo user (random password, unusable via login form)
+// and returns a session flagged read-only.
+func CreateDemoSession(d *sql.DB) (string, error) {
+	randomPass := make([]byte, 16)
+	rand.Read(randomPass)
+	hash, err := bcrypt.GenerateFromPassword(randomPass, bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	if _, err := d.Exec(
+		`INSERT INTO users (email, password_hash, role)
+		 SELECT 'demo@pims.local', $1, 'user'
+		 WHERE NOT EXISTS (SELECT 1 FROM users WHERE email = 'demo@pims.local')`,
+		string(hash),
+	); err != nil {
+		return "", err
+	}
+	var token string
+	err = d.QueryRow(
+		`INSERT INTO sessions (user_id, token, expires_at, is_demo)
+		 SELECT id, $1, $2, TRUE FROM users WHERE email = 'demo@pims.local'
+		 RETURNING token`,
+		randomToken(32), time.Now().Add(24*time.Hour),
+	).Scan(&token)
+	return token, err
 }
 
 func DeleteSession(d *sql.DB, token string) error {
