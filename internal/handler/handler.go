@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/H4fizWasabie/pims/internal/auth"
 	"github.com/H4fizWasabie/pims/internal/config"
 	"github.com/H4fizWasabie/pims/internal/db"
 )
@@ -62,6 +63,7 @@ func (h *Handler) AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			h.Error(w, 401, "Invalid or expired session")
 			return
 		}
+		auth.SetSessionCookie(w, token)
 		// All write routes are POST; demo sessions may only read.
 		if user.IsDemo && r.Method != http.MethodGet {
 			h.Error(w, 403, "Demo mode: read-only browsing")
