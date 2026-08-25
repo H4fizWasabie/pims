@@ -98,6 +98,7 @@ func (h *Handler) HandleMe(w http.ResponseWriter, r *http.Request) {
 		h.Error(w, 401, "Invalid session")
 		return
 	}
+	auth.SetSessionCookie(w, token)
 	h.JSON(w, 200, map[string]any{
 		"email": user.Email,
 		"role":  user.Role,

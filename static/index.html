@@ -3713,6 +3713,7 @@ function hideLogin() {
 }
 var idleTimer = null;
 var IDLE_TIMEOUT_MS = 15 * 60 * 1000;
+var HEARTBEAT_MS = 5 * 60 * 1000;
 function resetIdleTimer() {
   if (document.getElementById('login-overlay').style.display === 'flex') return;
   clearTimeout(idleTimer);
@@ -3724,6 +3725,13 @@ function startIdleTimer() { resetIdleTimer(); }
 function stopIdleTimer() { clearTimeout(idleTimer); idleTimer = null; }
 ['pointerdown', 'keydown', 'mousemove', 'touchstart', 'scroll'].forEach(function(event) {
   document.addEventListener(event, resetIdleTimer, {passive: true});
+});
+setInterval(function() {
+  if (document.visibilityState !== 'visible') return;
+  api('GET', '/api/auth/me').catch(showLogin);
+}, HEARTBEAT_MS);
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState === 'visible') resetIdleTimer();
 });
 function doLogin() {
   var email = document.getElementById('login_email').value.trim();
