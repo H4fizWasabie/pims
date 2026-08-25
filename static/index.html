@@ -3698,6 +3698,7 @@ function toggleSidebar() {
 
 // Auth
 function showLogin() {
+  stopIdleTimer();
   document.getElementById('login-overlay').style.display = 'flex';
   document.getElementById('sidebar').style.display = 'none';
   document.querySelector('.main-wrapper').style.display = 'none';
@@ -3708,7 +3709,22 @@ function hideLogin() {
   document.getElementById('sidebar').style.display = '';
   document.querySelector('.main-wrapper').style.display = '';
   switchTab('dashboard');
+  startIdleTimer();
 }
+var idleTimer = null;
+var IDLE_TIMEOUT_MS = 15 * 60 * 1000;
+function resetIdleTimer() {
+  if (document.getElementById('login-overlay').style.display === 'flex') return;
+  clearTimeout(idleTimer);
+  idleTimer = setTimeout(function() {
+    fetch('/pims/api/auth/logout', {method: 'POST', keepalive: true}).finally(showLogin);
+  }, IDLE_TIMEOUT_MS);
+}
+function startIdleTimer() { resetIdleTimer(); }
+function stopIdleTimer() { clearTimeout(idleTimer); idleTimer = null; }
+['pointerdown', 'keydown', 'mousemove', 'touchstart', 'scroll'].forEach(function(event) {
+  document.addEventListener(event, resetIdleTimer, {passive: true});
+});
 function doLogin() {
   var email = document.getElementById('login_email').value.trim();
   var password = document.getElementById('login_password').value;

@@ -34,7 +34,7 @@ func SetSessionCookie(w http.ResponseWriter, token string) {
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		MaxAge:   86400,
+		MaxAge:   900,
 	})
 }
 

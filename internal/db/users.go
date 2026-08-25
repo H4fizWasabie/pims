@@ -9,6 +9,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+const sessionIdleTimeout = 15 * time.Minute
+
 type User struct {
 	ID           int
 	Email        string
@@ -51,7 +53,7 @@ func CreateSession(d *sql.DB, userID int) (string, error) {
 	token := randomToken(32)
 	_, err := d.Exec(
 		`INSERT INTO sessions (user_id, token, expires_at) VALUES ($1, $2, $3)`,
-		userID, token, time.Now().Add(24*time.Hour),
+		userID, token, time.Now().Add(sessionIdleTimeout),
 	)
 	return token, err
 }
@@ -65,6 +67,9 @@ func ValidateSession(d *sql.DB, token string) (*User, error) {
 		token,
 	).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Role, &u.IsDemo)
 	if err != nil {
+		return nil, err
+	}
+	if _, err := d.Exec(`UPDATE sessions SET expires_at = NOW() + INTERVAL '15 minutes' WHERE token = $1`, token); err != nil {
 		return nil, err
 	}
 	return &u, nil
@@ -92,7 +97,7 @@ func CreateDemoSession(d *sql.DB) (string, error) {
 		`INSERT INTO sessions (user_id, token, expires_at, is_demo)
 		 SELECT id, $1, $2, TRUE FROM users WHERE email = 'demo@pims.local'
 		 RETURNING token`,
-		randomToken(32), time.Now().Add(24*time.Hour),
+		randomToken(32), time.Now().Add(sessionIdleTimeout),
 	).Scan(&token)
 	return token, err
 }
