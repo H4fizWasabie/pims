@@ -23,12 +23,18 @@ func main() {
 	}
 	defer database.Close()
 
+	stockDatabase, err := db.ConnectProcura(cfg.ProcuraDBPath)
+	if err != nil {
+		log.Fatalf("procura db: %v", err)
+	}
+	defer stockDatabase.Close()
+
 	if err := db.Migrate(database); err != nil {
 		log.Fatalf("migrate: %v", err)
 	}
 
 	staticFS, _ := fs.Sub(staticFiles, "static")
-	h := &handler.Handler{DB: database, Cfg: cfg, StaticFS: staticFS}
+	h := &handler.Handler{DB: database, StockDB: stockDatabase, Cfg: cfg, StaticFS: staticFS}
 
 	mux := http.NewServeMux()
 

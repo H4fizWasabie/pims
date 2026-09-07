@@ -16,6 +16,7 @@ import (
 
 type Handler struct {
 	DB       *sql.DB
+	StockDB  *sql.DB
 	Cfg      *config.Config
 	StaticFS fs.FS
 }

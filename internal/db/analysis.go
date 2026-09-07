@@ -25,7 +25,7 @@ type AnalysisResult struct {
 	Items    []AnalysisItem `json:"items"`
 }
 
-func RunStockAnalysis(d *sql.DB) (*AnalysisResult, error) {
+func RunStockAnalysis(d, stockDB *sql.DB) (*AnalysisResult, error) {
 	result := &AnalysisResult{Date: time.Now().Format("2006-01-02")}
 
 	takeMap := map[string]*struct {
@@ -53,10 +53,19 @@ func RunStockAnalysis(d *sql.DB) (*AnalysisResult, error) {
 	}
 	rows.Close()
 
+	stockIDs := make([]string, 0, len(takeMap))
+	for stockID := range takeMap {
+		stockIDs = append(stockIDs, stockID)
+	}
+	stocks, err := currentStocks(d, stockDB, stockIDs)
+	if err != nil {
+		return nil, err
+	}
+
 	for stockID, take := range takeMap {
 		item := AnalysisItem{StockID: stockID, PhysicalQty: take.qty}
 
-		d.QueryRow(`SELECT COALESCE(current_stock, 0) FROM inventory WHERE stock_id = $1`, stockID).Scan(&item.SystemQty)
+		item.SystemQty = stocks[stockID]
 		d.QueryRow(`SELECT item_name, uom, cost FROM master_items WHERE stock_id = $1`, stockID).Scan(&item.ItemName, &item.UOM, &item.Cost)
 
 		locs := ""

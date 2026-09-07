@@ -13,10 +13,10 @@ type IndentItem struct {
 	Qty      float64 `json:"reqQty"`
 }
 
-func GetIndentMasterData(d *sql.DB) ([]map[string]any, error) {
+func GetIndentMasterData(d, stockDB *sql.DB) ([]map[string]any, error) {
 	rows, err := d.Query(
-		`SELECT m.stock_id, m.item_name, m.uom, COALESCE(i.current_stock, 0)
-		 FROM master_items m LEFT JOIN inventory i ON m.stock_id = i.stock_id
+		`SELECT m.stock_id, m.item_name, m.uom
+		 FROM master_items m
 		 WHERE LOWER(m.product_status) NOT IN ('unavailable', 'not-available')
 		 ORDER BY m.stock_id`)
 	if err != nil {
@@ -24,17 +24,28 @@ func GetIndentMasterData(d *sql.DB) ([]map[string]any, error) {
 	}
 	defer rows.Close()
 	var items []map[string]any
+	var stockIDs []string
 	for rows.Next() {
 		var stockID, itemName, uom string
-		var currentStock float64
-		if err := rows.Scan(&stockID, &itemName, &uom, &currentStock); err != nil {
+		if err := rows.Scan(&stockID, &itemName, &uom); err != nil {
 			return nil, err
 		}
 		items = append(items, map[string]any{
-			"stockId": stockID, "itemName": itemName, "uom": uom, "currentStock": currentStock,
+			"stockId": stockID, "itemName": itemName, "uom": uom,
 		})
+		stockIDs = append(stockIDs, stockID)
 	}
-	return items, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	stocks, err := currentStocks(d, stockDB, stockIDs)
+	if err != nil {
+		return nil, err
+	}
+	for _, item := range items {
+		item["currentStock"] = stocks[item["stockId"].(string)]
+	}
+	return items, nil
 }
 
 func SubmitIndent(d *sql.DB, requester string, items []IndentItem, indentID string) error {
@@ -61,7 +72,7 @@ func NextIndentID() string {
 	return fmt.Sprintf("REQ-%s-%s", now.Format("0201"), now.Format("1504"))
 }
 
-func ApproveIndent(d *sql.DB, indentRowID int, reqQty float64, approverEmail string) error {
+func ApproveIndent(d, stockDB *sql.DB, indentRowID int, reqQty float64, approverEmail string) error {
 	tx, err := d.Begin()
 	if err != nil {
 		return err
@@ -77,19 +88,18 @@ func ApproveIndent(d *sql.DB, indentRowID int, reqQty float64, approverEmail str
 		return fmt.Errorf("item was already processed")
 	}
 
-	var currentStock float64
-	err = tx.QueryRow(`SELECT current_stock FROM inventory WHERE stock_id = $1 FOR UPDATE`, rowStockID).Scan(&currentStock)
+	stocks, err := currentStocks(d, stockDB, []string{rowStockID})
 	if err != nil {
-		return fmt.Errorf("stock ID %s not found in inventory", rowStockID)
+		return err
+	}
+	currentStock, ok := stocks[rowStockID]
+	if !ok {
+		return fmt.Errorf("stock ID %s not found in Procura", rowStockID)
 	}
 	if currentStock < reqQty {
 		return fmt.Errorf("insufficient stock! Current: %.0f, Req: %.0f", currentStock, reqQty)
 	}
 
-	_, err = tx.Exec(`UPDATE inventory SET current_stock = current_stock - $1, updated_at = NOW() WHERE stock_id = $2`, reqQty, rowStockID)
-	if err != nil {
-		return err
-	}
 	_, err = tx.Exec(`UPDATE indents SET status = 'Approved', action_log = $1 WHERE id = $2`,
 		"Approved by: "+approverEmail, indentRowID)
 	if err != nil {

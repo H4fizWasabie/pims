@@ -35,19 +35,45 @@ type PendingSpec struct {
 	Justification string  `json:"justification"`
 }
 
-func GetDashboardSummary(d *sql.DB) (*DashboardSummary, error) {
+func GetDashboardSummary(d, stockDB *sql.DB) (*DashboardSummary, error) {
 	s := &DashboardSummary{
 		PendingIndents: []PendingIndent{},
 		PendingSpecs:   []PendingSpec{},
 	}
 
-	d.QueryRow(`SELECT COUNT(*) FROM inventory`).Scan(&s.Stats.TotalItems)
-	d.QueryRow(`SELECT COUNT(*) FROM inventory WHERE current_stock < 10`).Scan(&s.Stats.LowStock)
+	rows, err := d.Query(`SELECT stock_id FROM inventory`)
+	if err != nil {
+		return nil, err
+	}
+	var stockIDs []string
+	for rows.Next() {
+		var stockID string
+		if err := rows.Scan(&stockID); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		stockIDs = append(stockIDs, stockID)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	rows.Close()
+	stocks, err := currentStocks(d, stockDB, stockIDs)
+	if err != nil {
+		return nil, err
+	}
+	s.Stats.TotalItems = len(stockIDs)
+	for _, stockID := range stockIDs {
+		if stocks[stockID] < 10 {
+			s.Stats.LowStock++
+		}
+	}
 	d.QueryRow(`SELECT COUNT(*) FROM indents WHERE status = 'Pending'`).Scan(&s.Stats.PendingRequests)
 	d.QueryRow(`SELECT COUNT(*) FROM expiry_tracking WHERE expiry_date - CURRENT_DATE <= 90`).Scan(&s.Stats.ExpiryCritical)
 	d.QueryRow(`SELECT COUNT(*) FROM new_item_requests WHERE status = 'Pending Review'`).Scan(&s.Stats.PendingSpecs)
 
-	rows, err := d.Query(
+	rows, err = d.Query(
 		`SELECT id, request_date, requester, item_name, stock_id, uom, requested_qty
 		 FROM indents WHERE status = 'Pending' ORDER BY request_date DESC`)
 	if err == nil {

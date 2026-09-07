@@ -5,6 +5,7 @@ import "os"
 type Config struct {
 	Port             string
 	DatabaseURL      string
+	ProcuraDBPath    string
 	SessionSecret    string
 	OpenRouterAPIKey string
 	OpenRouterModel  string
@@ -18,6 +19,7 @@ func Load() *Config {
 	return &Config{
 		Port:             env("PORT", "8083"),
 		DatabaseURL:      env("DATABASE_URL", "postgres://pims:pims@localhost:5432/pims?sslmode=disable"),
+		ProcuraDBPath:    env("PROCURA_DB_PATH", "/home/procura/data/procura.sqlite"),
 		SessionSecret:    env("SESSION_SECRET", "dev-secret-change-me"),
 		OpenRouterAPIKey: os.Getenv("OPENROUTER_API_KEY"),
 		OpenRouterModel:  env("OPENROUTER_MODEL", "google/gemma-4-31b-it:free"),

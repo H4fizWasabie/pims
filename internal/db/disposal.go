@@ -55,12 +55,6 @@ func SubmitDisposal(d *sql.DB, data *DisposalSubmit, userEmail string) error {
 	}
 	defer tx.Rollback()
 
-	_, err = tx.Exec(`UPDATE inventory SET current_stock = current_stock - $1, updated_at = NOW() WHERE stock_id = $2`,
-		data.Qty, data.StockID)
-	if err != nil {
-		return err
-	}
-
 	_, err = tx.Exec(
 		`INSERT INTO disposal_logs (stock_id, item_name, batch_no, qty_disposed, unit_cost, total_loss, reason, remarks, user_email)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,

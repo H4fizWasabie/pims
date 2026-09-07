@@ -2286,7 +2286,7 @@
 
   <div style="text-align:center; font-size:0.85rem; color:#6b7280;">
     <i class="fa-solid fa-circle-info"></i> 
-    This action deducts inventory and logs the financial loss.
+    This logs the disposal and financial loss. Stock quantity remains managed by Procura.
   </div>
 
 </div>
@@ -2358,7 +2358,7 @@
     if(!qty || qty <= 0) { alert("Please enter a valid quantity."); return; }
     if(!reason) { alert("Please select a reason."); return; }
 
-    if(!confirm("⚠️ CONFIRM DISPOSAL?\n\nThis will remove stock from inventory.")) return;
+    if(!confirm("⚠️ CONFIRM DISPOSAL?\n\nThis logs the disposal. Stock quantity remains managed by Procura.")) return;
 
     const btn = document.getElementById('disp_btnSubmit');
     const oldText = btn.innerHTML;
@@ -2958,7 +2958,7 @@ function usr_del(id, btn) {
             String(idxCost >= 0 ? row[idxCost] : '0'),            // cost
             String(idxSupplier >= 0 ? row[idxSupplier] : '').trim(), // last_supplier
             String(idxStatus >= 0 ? row[idxStatus] : 'Available').trim(), // product_status
-            String(idxStock >= 0 ? row[idxStock] : '0').trim()     // current_stock
+            String(idxStock >= 0 ? row[idxStock] : '0').trim()     // retained for compatibility; Procura owns stock
           ]);
         }
 

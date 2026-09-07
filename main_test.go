@@ -310,12 +310,9 @@ func TestInventoryReplace(t *testing.T) {
 	}
 	ts.post("/api/master/replace", mustJSON(t, data), cookie)
 
-	// Replace inventory
-	invData := [][]string{
-		{"STK001", "Item A", "50"},
-	}
-	resp := ts.post("/api/inventory/replace", mustJSON(t, invData), cookie)
-	assertSuccess(t, resp)
+	// Stock quantity is managed by Procura.
+	resp := ts.post("/api/inventory/replace", mustJSON(t, [][]string{{"STK001", "Item A", "50"}}), cookie)
+	assertStatus(t, resp, http.StatusConflict)
 
 	// Get chunk
 	resp = ts.get("/api/inventory/chunk?page=0&pageSize=10", cookie)
@@ -332,7 +329,8 @@ func TestIndentSubmitAndApprove(t *testing.T) {
 	// Setup: add master items and inventory
 	master := [][]string{{"STK001", "Item X", "BOX", "G1", "5.00", "Sup1", "Available"}}
 	ts.post("/api/master/replace", mustJSON(t, master), cookie)
-	ts.post("/api/inventory/replace", mustJSON(t, [][]string{{"STK001", "Item X", "100"}}), cookie)
+	ts.db.Exec(`INSERT INTO inventory (stock_id, item_name, current_stock) VALUES ('STK001', 'Item X', 100)
+		ON CONFLICT (stock_id) DO UPDATE SET item_name = EXCLUDED.item_name, current_stock = EXCLUDED.current_stock`)
 
 	// Submit indent
 	indent := map[string]any{
@@ -361,11 +359,11 @@ func TestIndentSubmitAndApprove(t *testing.T) {
 	resp = ts.post("/api/indent/approve", mustJSON(t, approve), cookie)
 	assertSuccess(t, resp)
 
-	// Verify stock deducted
+	// Verify PIMS did not mutate the Procura-owned quantity.
 	var stock float64
 	ts.db.QueryRow("SELECT current_stock FROM inventory WHERE stock_id = 'STK001'").Scan(&stock)
-	if stock != 90 {
-		t.Errorf("stock: want 90, got %v", stock)
+	if stock != 100 {
+		t.Errorf("stock: want 100, got %v", stock)
 	}
 }
 
@@ -435,7 +433,8 @@ func TestDisposal(t *testing.T) {
 	// Setup
 	master := [][]string{{"STK001", "Item X", "BOX", "G1", "5.00", "Sup1", "Available"}}
 	ts.post("/api/master/replace", mustJSON(t, master), cookie)
-	ts.post("/api/inventory/replace", mustJSON(t, [][]string{{"STK001", "Item X", "50"}}), cookie)
+	ts.db.Exec(`INSERT INTO inventory (stock_id, item_name, current_stock) VALUES ('STK001', 'Item X', 50)
+		ON CONFLICT (stock_id) DO UPDATE SET item_name = EXCLUDED.item_name, current_stock = EXCLUDED.current_stock`)
 
 	// Also add expiry tracking so disposal search works
 	ts.db.Exec(`INSERT INTO expiry_tracking (stock_id, item_name, batch_no, expiry_date, uom)
@@ -459,11 +458,11 @@ func TestDisposal(t *testing.T) {
 	resp = ts.post("/api/disposal/submit", mustJSON(t, disposal), cookie)
 	assertSuccess(t, resp)
 
-	// Verify stock deducted
+	// Verify PIMS did not mutate the Procura-owned quantity.
 	var stock float64
 	ts.db.QueryRow("SELECT current_stock FROM inventory WHERE stock_id = 'STK001'").Scan(&stock)
-	if stock != 45 {
-		t.Errorf("stock: want 45, got %v", stock)
+	if stock != 50 {
+		t.Errorf("stock: want 50, got %v", stock)
 	}
 }
 

@@ -48,5 +48,5 @@ func (h *Handler) HandleDisposalSubmit(w http.ResponseWriter, r *http.Request) {
 		h.Error(w, 500, "Server Error: "+err.Error())
 		return
 	}
-	h.Success(w, "Disposal Logged & Inventory Updated.")
+	h.Success(w, "Disposal logged. Stock quantity remains managed by Procura.")
 }

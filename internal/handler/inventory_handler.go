@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -14,7 +13,7 @@ func (h *Handler) HandleInventoryChunk(w http.ResponseWriter, r *http.Request) {
 	if pageSize <= 0 {
 		pageSize = 50
 	}
-	items, err := db.GetInventoryChunk(h.DB, page, pageSize)
+	items, err := db.GetInventoryChunk(h.DB, h.StockDB, page, pageSize)
 	if err != nil {
 		h.Error(w, 500, "Server Error: "+err.Error())
 		return
@@ -23,14 +22,5 @@ func (h *Handler) HandleInventoryChunk(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) HandleInventoryReplace(w http.ResponseWriter, r *http.Request) {
-	var data [][]string
-	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
-		h.Error(w, 400, "Invalid data format")
-		return
-	}
-	if err := db.ReplaceInventoryData(h.DB, data); err != nil {
-		h.Error(w, 500, "Server Error: "+err.Error())
-		return
-	}
-	h.Success(w, "Successfully updated Inventory.")
+	h.Error(w, http.StatusConflict, "Stock quantity is managed by Procura. Upload the Stock Balance History file there.")
 }

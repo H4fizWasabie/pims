@@ -8,7 +8,7 @@ import (
 )
 
 func (h *Handler) HandleIndentMasterData(w http.ResponseWriter, r *http.Request) {
-	items, err := db.GetIndentMasterData(h.DB)
+	items, err := db.GetIndentMasterData(h.DB, h.StockDB)
 	if err != nil {
 		h.Error(w, 500, "Server Error: "+err.Error())
 		return
@@ -17,7 +17,7 @@ func (h *Handler) HandleIndentMasterData(w http.ResponseWriter, r *http.Request)
 }
 
 type indentSubmitReq struct {
-	Requester string         `json:"requester"`
+	Requester string          `json:"requester"`
 	Items     []db.IndentItem `json:"items"`
 }
 
@@ -44,9 +44,9 @@ func (h *Handler) HandleIndentSubmit(w http.ResponseWriter, r *http.Request) {
 }
 
 type indentActionReq struct {
-	StockID       string  `json:"stockId"`
-	ReqQty        float64 `json:"reqQty"`
-	IndentRowIndex int    `json:"indentRowIndex"`
+	StockID        string  `json:"stockId"`
+	ReqQty         float64 `json:"reqQty"`
+	IndentRowIndex int     `json:"indentRowIndex"`
 }
 
 func (h *Handler) HandleIndentApprove(w http.ResponseWriter, r *http.Request) {
@@ -60,11 +60,11 @@ func (h *Handler) HandleIndentApprove(w http.ResponseWriter, r *http.Request) {
 		h.Error(w, 400, "Invalid request")
 		return
 	}
-	if err := db.ApproveIndent(h.DB, req.IndentRowIndex, req.ReqQty, user.Email); err != nil {
+	if err := db.ApproveIndent(h.DB, h.StockDB, req.IndentRowIndex, req.ReqQty, user.Email); err != nil {
 		h.Error(w, 400, err.Error())
 		return
 	}
-	h.Success(w, "Approved & Deducted.")
+	h.Success(w, "Approved.")
 }
 
 func (h *Handler) HandleIndentReject(w http.ResponseWriter, r *http.Request) {
