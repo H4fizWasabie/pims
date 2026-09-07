@@ -261,6 +261,7 @@ func TestMasterItems(t *testing.T) {
 	data := [][]string{
 		{"STK001", "Paracetamol 500mg", "TAB", "Pharmacy", "0.50", "MedSupply Co", "Available"},
 		{"STK002", "Syringe 5ml", "PCS", "Lab", "0.25", "LabEquip Ltd", "Available"},
+		{"STK003", "Hidden Item", "PCS", "Lab", "0.25", "LabEquip Ltd", "Unavailable"},
 	}
 	resp := ts.post("/api/master/replace", mustJSON(t, data), cookie)
 	assertSuccess(t, resp)
@@ -277,6 +278,19 @@ func TestMasterItems(t *testing.T) {
 	// Search
 	resp = ts.get("/api/master/search?q=para", cookie)
 	assertStatus(t, resp, 200)
+	var search []map[string]any
+	json.NewDecoder(resp.Body).Decode(&search)
+	if len(search) != 1 || search[0]["itemName"] != "Paracetamol 500mg" {
+		t.Errorf("master/search: expected only paracetamol, got %v", search)
+	}
+
+	resp = ts.get("/api/master/search?q=hidden", cookie)
+	assertStatus(t, resp, 200)
+	search = nil
+	json.NewDecoder(resp.Body).Decode(&search)
+	if len(search) != 0 {
+		t.Errorf("master/search: unavailable item returned: %v", search)
+	}
 
 	// Pagination
 	resp = ts.get("/api/master/chunk?page=0&pageSize=10", cookie)

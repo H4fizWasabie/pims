@@ -36,8 +36,9 @@ func SearchMaster(d *sql.DB, query string) ([]MasterItem, error) {
 		`SELECT m.stock_id, m.item_name, m.uom, m.item_group, m.cost, m.last_supplier, m.product_status,
 		        COALESCE(i.current_stock, 0)
 		 FROM master_items m LEFT JOIN inventory i ON m.stock_id = i.stock_id
-		 WHERE LOWER(m.stock_id) LIKE LOWER($1) OR LOWER(m.item_name) LIKE LOWER($1)
-		 LIMIT 50`, q)
+		 WHERE LOWER(m.product_status) NOT IN ('unavailable', 'not-available')
+		   AND (LOWER(m.stock_id) LIKE LOWER($1) OR LOWER(m.item_name) LIKE LOWER($1))
+		 ORDER BY m.stock_id LIMIT 50`, q)
 	if err != nil {
 		return nil, err
 	}

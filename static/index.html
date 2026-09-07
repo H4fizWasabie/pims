@@ -664,11 +664,6 @@
   }
 </style>
 
-<div id="lab_initLoader" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.95); z-index:2000; display:flex; justify-content:center; align-items:center; flex-direction:column;">
-  <i class="fa-solid fa-spinner fa-spin" style="font-size:40px; color:#2c3e50; margin-bottom:15px;"></i>
-  <p style="color:#334155; font-weight:600;">Initializing Lab Module...</p>
-</div>
-
 <div class="lab-wrapper">
 
   <div class="lab-header-card">
@@ -742,15 +737,8 @@
 
 <script>
   const LAB_DEPT_NAME = 'Lab';
-  let LAB_MASTER_DATA = [];
+  let lab_searchTimer;
   let lab_cart = [];
-
-  document.addEventListener('DOMContentLoaded', () => {
-    api("GET", "/api/master/all").then(data => {
-      LAB_MASTER_DATA = data;
-      document.getElementById('lab_initLoader').style.display = 'none';
-    }).catch(err => console.error(err));
-  });
 
   const lab_searchInput = document.getElementById('lab_searchInput');
   const lab_resultsBox = document.getElementById('lab_searchResults');
@@ -758,22 +746,32 @@
   lab_searchInput.addEventListener('input', function() {
     const query = this.value.toLowerCase().trim();
     lab_resultsBox.innerHTML = '';
+    clearTimeout(lab_searchTimer);
     if(query.length < 2) { lab_resultsBox.style.display = 'none'; return; }
     lab_resultsBox.style.display = 'block';
+    lab_resultsBox.innerHTML = '<div style="padding:12px; color:#94a3b8;">Searching...</div>';
+    lab_searchTimer = setTimeout(() => {
+      masterSearchItems(query).then(matches => {
+        if (lab_searchInput.value.toLowerCase().trim() !== query) return;
+        matches = matches.slice(0, 10);
+        if(matches.length === 0) { lab_resultsBox.innerHTML = `<div onclick="lab_addCustom('${query.replace(/'/g, "\\'")}')" style="padding:12px; cursor:pointer; color:#7c3aed; font-weight:600; border-bottom:1px solid #eee;"><i class="fa-solid fa-plus"></i> Add "${query.replace(/"/g, '&quot;')}" as custom item</div>`; return; }
 
-    const matches = LAB_MASTER_DATA.filter(item => item.itemName.toLowerCase().includes(query) || item.stockId.toLowerCase().includes(query)).slice(0, 10);
-    if(matches.length === 0) { lab_resultsBox.innerHTML = `<div onclick="lab_addCustom('${query.replace(/'/g, "\\'")}')" style="padding:12px; cursor:pointer; color:#7c3aed; font-weight:600; border-bottom:1px solid #eee;"><i class="fa-solid fa-plus"></i> Add "${query.replace(/"/g, '&quot;')}" as custom item</div>`; return; }
-
-    matches.forEach(item => {
-      const div = document.createElement('div'); div.className = 'lab-suggestion-item';
-      const stockStyle = item.currentStock > 0 ? 'color:#059669;' : 'color:#dc2626; font-weight:bold;';
-      div.innerHTML = `<div style="font-weight:600;">${item.itemName}</div>
-        <div style="font-size:0.8rem; display:flex; justify-content:space-between; margin-top:2px;">
-          <span>ID: ${item.stockId}</span><span style="${stockStyle}">Stock: ${item.currentStock} ${item.uom}</span>
-        </div>`;
-      div.onclick = () => lab_selectItem(item);
-      lab_resultsBox.appendChild(div);
-    });
+        lab_resultsBox.innerHTML = '';
+        matches.forEach(item => {
+          const div = document.createElement('div'); div.className = 'lab-suggestion-item';
+          const stockStyle = item.currentStock > 0 ? 'color:#059669;' : 'color:#dc2626; font-weight:bold;';
+          div.innerHTML = `<div style="font-weight:600;">${item.itemName}</div>
+            <div style="font-size:0.8rem; display:flex; justify-content:space-between; margin-top:2px;">
+              <span>ID: ${item.stockId}</span><span style="${stockStyle}">Stock: ${item.currentStock} ${item.uom}</span>
+            </div>`;
+          div.onclick = () => lab_selectItem(item);
+          lab_resultsBox.appendChild(div);
+        });
+      }).catch(err => {
+        if (lab_searchInput.value.toLowerCase().trim() === query) lab_resultsBox.innerHTML = '<div style="padding:12px; color:#dc2626;">Search failed.</div>';
+        console.error(err);
+      });
+    }, 180);
   });
 
   function lab_selectItem(item) {
@@ -985,11 +983,6 @@
   }
 </style>
 
-<div id="pharm_initLoader" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.95); z-index:2000; display:flex; justify-content:center; align-items:center; flex-direction:column;">
-  <i class="fa-solid fa-spinner fa-spin" style="font-size:40px; color:#008080; margin-bottom:15px;"></i>
-  <p style="color:#334155; font-weight:600;">Initializing Pharmacy Module...</p>
-</div>
-
 <div class="pharm-wrapper">
 
   <div class="pharm-header-card">
@@ -1057,15 +1050,8 @@
 
 <script>
   const PHARM_DEPT_NAME = 'Pharmacy';
-  let PHARM_MASTER_DATA = [];
+  let pharm_searchTimer;
   let pharm_cart = [];
-
-  document.addEventListener('DOMContentLoaded', () => {
-    api("GET", "/api/master/all").then(data => {
-      PHARM_MASTER_DATA = data;
-      document.getElementById('pharm_initLoader').style.display = 'none';
-    }).catch(err => console.error(err));
-  });
 
   const pharm_searchInput = document.getElementById('pharm_searchInput');
   const pharm_resultsBox = document.getElementById('pharm_searchResults');
@@ -1073,22 +1059,32 @@
   pharm_searchInput.addEventListener('input', function() {
     const query = this.value.toLowerCase().trim();
     pharm_resultsBox.innerHTML = '';
+    clearTimeout(pharm_searchTimer);
     if(query.length < 2) { pharm_resultsBox.style.display = 'none'; return; }
     pharm_resultsBox.style.display = 'block';
+    pharm_resultsBox.innerHTML = '<div style="padding:12px; color:#94a3b8;">Searching...</div>';
+    pharm_searchTimer = setTimeout(() => {
+      masterSearchItems(query).then(matches => {
+        if (pharm_searchInput.value.toLowerCase().trim() !== query) return;
+        matches = matches.slice(0, 10);
+        if(matches.length === 0) { pharm_resultsBox.innerHTML = `<div onclick="pharm_addCustom('${query.replace(/'/g, "\\'")}')" style="padding:12px; cursor:pointer; color:#7c3aed; font-weight:600; border-bottom:1px solid #eee;"><i class="fa-solid fa-plus"></i> Add "${query.replace(/"/g, '&quot;')}" as custom item</div>`; return; }
 
-    const matches = (PHARM_MASTER_DATA || []).filter(item => item.itemName.toLowerCase().includes(query) || item.stockId.toLowerCase().includes(query)).slice(0, 10);
-    if(matches.length === 0) { pharm_resultsBox.innerHTML = `<div onclick="pharm_addCustom('${query.replace(/'/g, "\\'")}')" style="padding:12px; cursor:pointer; color:#7c3aed; font-weight:600; border-bottom:1px solid #eee;"><i class="fa-solid fa-plus"></i> Add "${query.replace(/"/g, '&quot;')}" as custom item</div>`; return; }
-
-    matches.forEach(item => {
-      const div = document.createElement('div'); div.className = 'pharm-suggestion-item';
-      const stockStyle = item.currentStock > 0 ? 'color:#059669;' : 'color:#dc2626; font-weight:bold;';
-      div.innerHTML = `<div style="font-weight:600;">${item.itemName}</div>
-        <div style="font-size:0.8rem; display:flex; justify-content:space-between; margin-top:2px;">
-          <span>ID: ${item.stockId}</span><span style="${stockStyle}">Stock: ${item.currentStock} ${item.uom}</span>
-        </div>`;
-      div.onclick = () => pharm_selectItem(item);
-      pharm_resultsBox.appendChild(div);
-    });
+        pharm_resultsBox.innerHTML = '';
+        matches.forEach(item => {
+          const div = document.createElement('div'); div.className = 'pharm-suggestion-item';
+          const stockStyle = item.currentStock > 0 ? 'color:#059669;' : 'color:#dc2626; font-weight:bold;';
+          div.innerHTML = `<div style="font-weight:600;">${item.itemName}</div>
+            <div style="font-size:0.8rem; display:flex; justify-content:space-between; margin-top:2px;">
+              <span>ID: ${item.stockId}</span><span style="${stockStyle}">Stock: ${item.currentStock} ${item.uom}</span>
+            </div>`;
+          div.onclick = () => pharm_selectItem(item);
+          pharm_resultsBox.appendChild(div);
+        });
+      }).catch(err => {
+        if (pharm_searchInput.value.toLowerCase().trim() === query) pharm_resultsBox.innerHTML = '<div style="padding:12px; color:#dc2626;">Search failed.</div>';
+        console.error(err);
+      });
+    }, 180);
   });
 
   function pharm_selectItem(item) {
@@ -1223,10 +1219,6 @@
   .med-suggestion-item:hover { background-color: #f5f3ff; }
   @media (max-width: 900px) { .med-grid { grid-template-columns: 1fr; gap: 15px; } .med-table-container { overflow-x: auto; } }
 </style>
-<div id="med_initLoader" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.95); z-index:2000; display:flex; justify-content:center; align-items:center; flex-direction:column;">
-  <i class="fa-solid fa-spinner fa-spin" style="font-size:40px; color:#7c3aed; margin-bottom:15px;"></i>
-  <p style="color:#334155; font-weight:600;">Initializing Medical Ward Module...</p>
-</div>
 <div class="med-wrapper">
   <div class="med-header-card">
     <div class="med-title">
@@ -1274,27 +1266,35 @@
 </div>
 <script>
   const MED_DEPT_NAME = 'Medical Ward';
-  let MED_MASTER_DATA = [];
+  let med_searchTimer;
   let med_cart = [];
-  document.addEventListener('DOMContentLoaded', () => {
-    api("GET", "/api/master/all").then(data => { MED_MASTER_DATA = data; document.getElementById('med_initLoader').style.display = 'none'; }).catch(err => console.error(err));
-  });
   const med_searchInput = document.getElementById('med_searchInput');
   const med_resultsBox = document.getElementById('med_searchResults');
   med_searchInput.addEventListener('input', function() {
     const query = this.value.toLowerCase().trim();
     med_resultsBox.innerHTML = '';
+    clearTimeout(med_searchTimer);
     if(query.length < 2) { med_resultsBox.style.display = 'none'; return; }
     med_resultsBox.style.display = 'block';
-    const matches = (MED_MASTER_DATA || []).filter(item => item.itemName.toLowerCase().includes(query) || item.stockId.toLowerCase().includes(query)).slice(0, 10);
-    if(matches.length === 0) { med_resultsBox.innerHTML = `<div onclick="med_addCustom('${query.replace(/'/g, "\\'")}')" style="padding:12px; cursor:pointer; color:#7c3aed; font-weight:600; border-bottom:1px solid #eee;"><i class="fa-solid fa-plus"></i> Add "${query.replace(/"/g, '&quot;')}" as custom item</div>`; return; }
-    matches.forEach(item => {
-      const div = document.createElement('div'); div.className = 'med-suggestion-item';
-      const stockStyle = item.currentStock > 0 ? 'color:#059669;' : 'color:#dc2626; font-weight:bold;';
-      div.innerHTML = `<div style="font-weight:600;">${item.itemName}</div><div style="font-size:0.8rem;display:flex;justify-content:space-between;margin-top:2px;"><span>ID: ${item.stockId}</span><span style="${stockStyle}">Stock: ${item.currentStock} ${item.uom}</span></div>`;
-      div.onclick = () => med_selectItem(item);
-      med_resultsBox.appendChild(div);
-    });
+    med_resultsBox.innerHTML = '<div style="padding:12px; color:#94a3b8;">Searching...</div>';
+    med_searchTimer = setTimeout(() => {
+      masterSearchItems(query).then(matches => {
+        if (med_searchInput.value.toLowerCase().trim() !== query) return;
+        matches = matches.slice(0, 10);
+        if(matches.length === 0) { med_resultsBox.innerHTML = `<div onclick="med_addCustom('${query.replace(/'/g, "\\'")}')" style="padding:12px; cursor:pointer; color:#7c3aed; font-weight:600; border-bottom:1px solid #eee;"><i class="fa-solid fa-plus"></i> Add "${query.replace(/"/g, '&quot;')}" as custom item</div>`; return; }
+        med_resultsBox.innerHTML = '';
+        matches.forEach(item => {
+          const div = document.createElement('div'); div.className = 'med-suggestion-item';
+          const stockStyle = item.currentStock > 0 ? 'color:#059669;' : 'color:#dc2626; font-weight:bold;';
+          div.innerHTML = `<div style="font-weight:600;">${item.itemName}</div><div style="font-size:0.8rem;display:flex;justify-content:space-between;margin-top:2px;"><span>ID: ${item.stockId}</span><span style="${stockStyle}">Stock: ${item.currentStock} ${item.uom}</span></div>`;
+          div.onclick = () => med_selectItem(item);
+          med_resultsBox.appendChild(div);
+        });
+      }).catch(err => {
+        if (med_searchInput.value.toLowerCase().trim() === query) med_resultsBox.innerHTML = '<div style="padding:12px; color:#dc2626;">Search failed.</div>';
+        console.error(err);
+      });
+    }, 180);
   });
   function med_selectItem(item) {
     med_searchInput.value = item.itemName;
@@ -1380,10 +1380,6 @@
   .surg-suggestion-item:hover { background-color: #fef2f2; }
   @media (max-width: 900px) { .surg-grid { grid-template-columns: 1fr; gap: 15px; } .surg-table-container { overflow-x: auto; } }
 </style>
-<div id="surg_initLoader" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.95); z-index:2000; display:flex; justify-content:center; align-items:center; flex-direction:column;">
-  <i class="fa-solid fa-spinner fa-spin" style="font-size:40px; color:#dc2626; margin-bottom:15px;"></i>
-  <p style="color:#334155; font-weight:600;">Initializing Surgical Ward Module...</p>
-</div>
 <div class="surg-wrapper">
   <div class="surg-header-card">
     <div class="surg-title">
@@ -1431,27 +1427,35 @@
 </div>
 <script>
   const SURG_DEPT_NAME = 'Surgical Ward';
-  let SURG_MASTER_DATA = [];
+  let surg_searchTimer;
   let surg_cart = [];
-  document.addEventListener('DOMContentLoaded', () => {
-    api("GET", "/api/master/all").then(data => { SURG_MASTER_DATA = data; document.getElementById('surg_initLoader').style.display = 'none'; }).catch(err => console.error(err));
-  });
   const surg_searchInput = document.getElementById('surg_searchInput');
   const surg_resultsBox = document.getElementById('surg_searchResults');
   surg_searchInput.addEventListener('input', function() {
     const query = this.value.toLowerCase().trim();
     surg_resultsBox.innerHTML = '';
+    clearTimeout(surg_searchTimer);
     if(query.length < 2) { surg_resultsBox.style.display = 'none'; return; }
     surg_resultsBox.style.display = 'block';
-    const matches = (SURG_MASTER_DATA || []).filter(item => item.itemName.toLowerCase().includes(query) || item.stockId.toLowerCase().includes(query)).slice(0, 10);
-    if(matches.length === 0) { surg_resultsBox.innerHTML = `<div onclick="surg_addCustom('${query.replace(/'/g, "\\'")}')" style="padding:12px; cursor:pointer; color:#7c3aed; font-weight:600; border-bottom:1px solid #eee;"><i class="fa-solid fa-plus"></i> Add "${query.replace(/"/g, '&quot;')}" as custom item</div>`; return; }
-    matches.forEach(item => {
-      const div = document.createElement('div'); div.className = 'surg-suggestion-item';
-      const stockStyle = item.currentStock > 0 ? 'color:#059669;' : 'color:#dc2626; font-weight:bold;';
-      div.innerHTML = `<div style="font-weight:600;">${item.itemName}</div><div style="font-size:0.8rem;display:flex;justify-content:space-between;margin-top:2px;"><span>ID: ${item.stockId}</span><span style="${stockStyle}">Stock: ${item.currentStock} ${item.uom}</span></div>`;
-      div.onclick = () => surg_selectItem(item);
-      surg_resultsBox.appendChild(div);
-    });
+    surg_resultsBox.innerHTML = '<div style="padding:12px; color:#94a3b8;">Searching...</div>';
+    surg_searchTimer = setTimeout(() => {
+      masterSearchItems(query).then(matches => {
+        if (surg_searchInput.value.toLowerCase().trim() !== query) return;
+        matches = matches.slice(0, 10);
+        if(matches.length === 0) { surg_resultsBox.innerHTML = `<div onclick="surg_addCustom('${query.replace(/'/g, "\\'")}')" style="padding:12px; cursor:pointer; color:#7c3aed; font-weight:600; border-bottom:1px solid #eee;"><i class="fa-solid fa-plus"></i> Add "${query.replace(/"/g, '&quot;')}" as custom item</div>`; return; }
+        surg_resultsBox.innerHTML = '';
+        matches.forEach(item => {
+          const div = document.createElement('div'); div.className = 'surg-suggestion-item';
+          const stockStyle = item.currentStock > 0 ? 'color:#059669;' : 'color:#dc2626; font-weight:bold;';
+          div.innerHTML = `<div style="font-weight:600;">${item.itemName}</div><div style="font-size:0.8rem;display:flex;justify-content:space-between;margin-top:2px;"><span>ID: ${item.stockId}</span><span style="${stockStyle}">Stock: ${item.currentStock} ${item.uom}</span></div>`;
+          div.onclick = () => surg_selectItem(item);
+          surg_resultsBox.appendChild(div);
+        });
+      }).catch(err => {
+        if (surg_searchInput.value.toLowerCase().trim() === query) surg_resultsBox.innerHTML = '<div style="padding:12px; color:#dc2626;">Search failed.</div>';
+        console.error(err);
+      });
+    }, 180);
   });
   function surg_selectItem(item) {
     surg_searchInput.value = item.itemName;
@@ -2192,473 +2196,12 @@
     <div id="module-stock_take" class="spa-module">
 <!-- Dependencies for React -->
 
-<script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script defer crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script defer crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 
 <div id="stock-take-root" style="min-height: calc(100vh - 60px);"></div>
 
-<script type="text/babel">
-  const { useState, useEffect } = React;
-
-  // --- Inline Icons using Lucide patterns ---
-  const IconCamera = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" /><circle cx="12" cy="13" r="3" /></svg>;
-  const IconCheck = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>;
-  const IconPlus = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" /></svg>;
-  const IconRotate = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>;
-  const IconSave = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></svg>;
-  const IconArrowLeft = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></svg>;
-  const IconList = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg>;
-
-  // Utility: Image resizing
-  const resizeImage = (base64Str, maxWidth = 1024) => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.src = base64Str;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width, height = img.height;
-        if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; }
-        canvas.width = width; canvas.height = height;
-        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.8));
-      };
-      img.onerror = () => resolve(base64Str);
-    });
-  };
-
-  // --- Fuzzy Matching Utilities ---
-  const levenshtein = (a, b) => {
-    const m = a.length, n = b.length;
-    if (!m) return n; if (!n) return m;
-    const d = Array.from({ length: m + 1 }, (_, i) => {
-      const row = new Array(n + 1);
-      row[0] = i;
-      return row;
-    });
-    for (let j = 1; j <= n; j++) d[0][j] = j;
-    for (let i = 1; i <= m; i++) {
-      for (let j = 1; j <= n; j++) {
-        d[i][j] = a[i - 1] === b[j - 1]
-          ? d[i - 1][j - 1]
-          : 1 + Math.min(d[i - 1][j], d[i][j - 1], d[i - 1][j - 1]);
-      }
-    }
-    return d[m][n];
-  };
-
-  const normalize = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-
-  const scoreMatch = (query, candidate) => {
-    const q = normalize(query), c = normalize(candidate);
-    if (!q || !c) return 0;
-    // Normalized edit distance (0 = identical, 1 = completely different)
-    const maxLen = Math.max(q.length, c.length);
-    const editScore = 1 - (levenshtein(q, c) / maxLen);
-    // Substring bonus
-    const subBonus = c.includes(q) || q.includes(c) ? 0.25 : 0;
-    // Word-start bonus: if first 3 chars match
-    const startBonus = q.slice(0, 3) === c.slice(0, 3) ? 0.15 : 0;
-    return Math.min(1, editScore + subBonus + startBonus);
-  };
-
-  const getTopMatches = (query, masterData, limit = 5) => {
-    if (!query || !masterData || masterData.length === 0) return [];
-    return masterData
-      .map(item => ({ ...item, score: scoreMatch(query, item.itemName) }))
-      .filter(item => item.score > 0.25)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, limit);
-  };
-
-  // Shared Input Component
-  const InputField = ({ label, type = "text", ...props }) => (
-    <div style={{ marginBottom: '12px' }}>
-      <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px', fontWeight: '600', textTransform: 'uppercase' }}>{label}</label>
-      <input type={type} style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', outline: 'none', transition: 'box-shadow 0.2s', fontSize: '15px' }}
-        onFocus={(e) => e.target.style.boxShadow = '0 0 0 2px rgba(79, 70, 229, 0.2)'}
-        onBlur={(e) => e.target.style.boxShadow = 'none'}
-        {...props} />
-    </div>
-  );
-
-  // SCREEN 1: Loading
-  const LoadingScreen = ({ message }) => (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '40px' }}>
-      <i className="fa-solid fa-spinner fa-spin" style={{ fontSize: '48px', color: '#4f46e5', marginBottom: '16px' }}></i>
-      <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#1e293b' }}>{message || 'Processing...'}</p>
-      <p style={{ fontSize: '14px', color: '#64748b', marginTop: '8px' }}>AI is extracting product details</p>
-    </div>
-  );
-
-  // SCREEN 2: Camera Capture
-  const CameraScreen = ({ onCaptureComplete }) => {
-    const [images, setImages] = useState([]);
-
-    const handleFile = async (e) => {
-      const file = e.target.files[0];
-      e.target.value = '';
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const resized = await resizeImage(reader.result);
-        setImages(prev => [...prev, resized]);
-      };
-      reader.readAsDataURL(file);
-    };
-
-    if (images.length > 0) {
-      const currentImg = images[images.length - 1];
-      return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#000' }}>
-          <div style={{ flex: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
-            <img src={currentImg} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-            <div style={{ position: 'absolute', top: '20px', right: '20px', backgroundColor: 'rgba(0,0,0,0.6)', color: 'white', padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold' }}>
-              Photo {images.length}
-            </div>
-          </div>
-          <div style={{ backgroundColor: '#1e293b', padding: '24px', borderTopLeftRadius: '24px', borderTopRightRadius: '24px' }}>
-            <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
-              <button onClick={() => setImages(prev => prev.slice(0, -1))} style={{ flex: 1, padding: '12px', borderRadius: '12px', backgroundColor: '#334155', color: 'white', border: '1px solid #475569', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 'bold' }}>
-                <IconRotate /> Retake
-              </button>
-              <label style={{ flex: 1, padding: '12px', borderRadius: '12px', backgroundColor: '#334155', color: '#60a5fa', border: '1px solid #475569', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 'bold', cursor: 'pointer', margin: 0 }}>
-                <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handleFile} />
-                <IconPlus /> Add Angle
-              </label>
-            </div>
-            <button onClick={() => onCaptureComplete(images)} style={{ width: '100%', padding: '16px', borderRadius: '12px', backgroundColor: '#4f46e5', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 'bold', fontSize: '18px', boxShadow: '0 4px 14px rgba(79, 70, 229, 0.4)', border: 'none' }}>
-              <IconCheck /> Process {images.length > 1 ? `${images.length} Photos` : 'Photo'}
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#f8fafc', padding: '24px' }}>
-        <div style={{ marginBottom: '32px' }}>
-          <h1 style={{ fontSize: '28px', fontWeight: '800', color: '#0f172a', margin: '0 0 8px 0' }}>Stock Take <span style={{ color: '#4f46e5' }}>Scan</span></h1>
-          <p style={{ color: '#64748b', margin: 0 }}>Take photos of product labels, batches, and expiry dates.</p>
-        </div>
-
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <label style={{ width: '100%', maxWidth: '320px', aspectRatio: '3/4', backgroundColor: 'white', border: '3px dashed #cbd5e1', borderRadius: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', transition: 'transform 0.2s' }}
-            onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.96)'}
-            onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}>
-            <div style={{ padding: '20px', backgroundColor: '#e0e7ff', borderRadius: '50%', marginBottom: '24px' }}>
-              <div style={{ color: '#4f46e5' }}><IconCamera /></div>
-            </div>
-            <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#1e293b' }}>Tap to Scan</span>
-            <span style={{ fontSize: '13px', color: '#94a3b8', marginTop: '8px' }}>Capture label & expiry side</span>
-            <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handleFile} />
-          </label>
-        </div>
-      </div>
-    );
-  };
-
-  // SCREEN 3: Review Form
-  const ReviewScreen = ({ initialData, onSave, onBack, locations, masterData }) => {
-    const [data, setData] = useState({
-      itemName: initialData.itemName || '',
-      batch: initialData.batch || '',
-      expiry: initialData.expiry || '',
-      qty: '',
-      location: localStorage.getItem('take_lastLoc') || '',
-      stockId: initialData.stockId || '',
-      uom: initialData.uom || '',
-      cost: initialData.cost || 0
-    });
-
-    // Compute fuzzy matches against the AI-scanned name
-    const fuzzyMatches = React.useMemo(
-      () => getTopMatches(initialData.itemName, masterData),
-      [initialData.itemName, masterData]
-    );
-
-    const [selectedMatchIdx, setSelectedMatchIdx] = useState(null);
-    const [manualSearch, setManualSearch] = useState('');
-    const [showSearchResults, setShowSearchResults] = useState(false);
-
-    // Live fuzzy results as user types in the Final Product Name field
-    const manualSearchResults = React.useMemo(
-      () => manualSearch.length >= 2 ? getTopMatches(manualSearch, masterData, 8) : [],
-      [manualSearch, masterData]
-    );
-
-    const selectManualMatch = (match) => {
-      setData(prev => ({
-        ...prev,
-        stockId: match.stockId,
-        itemName: match.itemName,
-        uom: match.uom || prev.uom,
-        cost: match.cost || prev.cost
-      }));
-      setManualSearch('');
-      setShowSearchResults(false);
-    };
-
-    // Auto-select best match on mount if confidence is very high
-    useEffect(() => {
-      if (fuzzyMatches.length > 0 && fuzzyMatches[0].score >= 0.7 && selectedMatchIdx === null) {
-        selectMatch(0);
-      }
-    }, [fuzzyMatches]);
-
-    const selectMatch = (idx) => {
-      const match = fuzzyMatches[idx];
-      setSelectedMatchIdx(idx);
-      setData(prev => ({
-        ...prev,
-        stockId: match.stockId,
-        itemName: match.itemName,
-        uom: match.uom || prev.uom,
-        cost: match.cost || prev.cost
-      }));
-    };
-
-    const handleChange = (field, value) => setData(prev => ({ ...prev, [field]: value }));
-
-    const save = () => {
-      if (!data.location) return alert('Please select a location');
-      if (!data.itemName) return alert('Product Name is required');
-      if (!data.qty) return alert('Physical quantity is required');
-      localStorage.setItem('take_lastLoc', data.location);
-      onSave(data);
-    };
-
-    const confidenceColor = (score) => {
-      if (score >= 0.7) return { bg: '#dcfce7', text: '#166534' };
-      if (score >= 0.5) return { bg: '#fef9c3', text: '#854d0e' };
-      return { bg: '#fee2e2', text: '#991b1b' };
-    };
-
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#f1f5f9' }}>
-        <header style={{ backgroundColor: 'white', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', zIndex: 10 }}>
-          <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}><IconArrowLeft /></button>
-          <h2 style={{ fontSize: '18px', fontWeight: '700', margin: 0, color: '#0f172a' }}>Review & Count</h2>
-          <div style={{ width: '24px' }}></div>
-        </header>
-
-        <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
-
-          {/* AI Extraction Card */}
-          <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: '20px', marginBottom: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
-            <h3 style={{ fontSize: '13px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.5px' }}>AI Extraction</h3>
-            <InputField label="Scanned Product Name" value={initialData.itemName || ''} readOnly style={{ backgroundColor: '#f1f5f9', color: '#64748b' }} />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <InputField label="Batch No." value={data.batch} onChange={e => handleChange('batch', e.target.value)} />
-              <InputField label="Expiry (MM/YYYY)" value={data.expiry} onChange={e => handleChange('expiry', e.target.value)} />
-            </div>
-          </div>
-
-          {/* Fuzzy Match Card */}
-          <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: '20px', marginBottom: '16px', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
-            <h3 style={{ fontSize: '13px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '12px', letterSpacing: '0.5px' }}>Matched Product</h3>
-
-            {/* Show selected match info */}
-            {selectedMatchIdx !== null && (
-              <div style={{ padding: '10px 14px', backgroundColor: '#eef2ff', borderRadius: '10px', marginBottom: '12px', border: '2px solid #4f46e5' }}>
-                <div style={{ fontSize: '11px', color: '#4f46e5', fontWeight: '700', marginBottom: '2px' }}>STOCK ID: {data.stockId}</div>
-                <div style={{ fontSize: '15px', fontWeight: '700', color: '#1e293b' }}>{data.itemName}</div>
-                {data.uom && <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>UOM: {data.uom} · Cost: {data.cost}</div>}
-              </div>
-            )}
-
-            {fuzzyMatches.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '600' }}>TAP TO SELECT A MATCH:</label>
-                {fuzzyMatches.map((match, idx) => {
-                  const cc = confidenceColor(match.score);
-                  const isSelected = selectedMatchIdx === idx;
-                  return (
-                    <button key={match.stockId + idx} onClick={() => selectMatch(idx)}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderRadius: '10px', border: isSelected ? '2px solid #4f46e5' : '1px solid #e2e8f0', backgroundColor: isSelected ? '#eef2ff' : '#f8fafc', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: '11px', color: '#4f46e5', fontWeight: '700' }}>{match.stockId}</div>
-                        <div style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{match.itemName}</div>
-                      </div>
-                      <span style={{ fontSize: '11px', fontWeight: '700', padding: '3px 8px', borderRadius: '6px', backgroundColor: cc.bg, color: cc.text, flexShrink: 0, marginLeft: '8px' }}>
-                        {Math.round(match.score * 100)}%
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              <div style={{ padding: '16px', textAlign: 'center', color: '#94a3b8', fontSize: '13px', backgroundColor: '#fef2f2', borderRadius: '10px' }}>
-                No match found in master data — manual entry below
-              </div>
-            )}
-
-            {/* Editable product name with fuzzy search (for manual override) */}
-            <div style={{ marginTop: '12px', position: 'relative' }}>
-              <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px', fontWeight: '600', textTransform: 'uppercase' }}>Final Product Name (search)</label>
-              <input type="text" value={data.itemName}
-                onChange={e => {
-                  handleChange('itemName', e.target.value);
-                  setSelectedMatchIdx(null);
-                  setManualSearch(e.target.value);
-                  setShowSearchResults(true);
-                }}
-                placeholder="Type to search master data..."
-                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', outline: 'none', transition: 'box-shadow 0.2s', fontSize: '15px' }}
-                onFocus={(e) => { e.target.style.boxShadow = '0 0 0 2px rgba(79, 70, 229, 0.2)'; if (data.itemName) { setManualSearch(data.itemName); setShowSearchResults(true); } }}
-                onBlur={(e) => { e.target.style.boxShadow = 'none'; setTimeout(() => setShowSearchResults(false), 200); }}
-              />
-              {showSearchResults && data.itemName && manualSearchResults.length > 0 && (
-                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)', maxHeight: '200px', overflowY: 'auto', marginTop: '4px' }}>
-                  {manualSearchResults.map((match, idx) => {
-                    const cc = confidenceColor(match.score);
-                    return (
-                      <button key={match.stockId + '-s-' + idx}
-                        onMouseDown={(e) => { e.preventDefault(); selectManualMatch(match); }}
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '10px 14px', border: 'none', borderBottom: '1px solid #f1f5f9', backgroundColor: 'white', cursor: 'pointer', textAlign: 'left' }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: '11px', color: '#4f46e5', fontWeight: '700' }}>{match.stockId}</div>
-                          <div style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{match.itemName}</div>
-                        </div>
-                        <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 6px', borderRadius: '4px', backgroundColor: cc.bg, color: cc.text, flexShrink: 0, marginLeft: '6px' }}>
-                          {Math.round(match.score * 100)}%
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              {data.stockId && (
-                <div style={{ marginTop: '6px', fontSize: '12px', color: '#4f46e5', fontWeight: '600' }}>
-                  ✓ Stock ID: {data.stockId}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Physical Count Card */}
-          <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
-            <h3 style={{ fontSize: '13px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '16px', letterSpacing: '0.5px' }}>Physical Count</h3>
-            <div style={{ marginBottom: '12px' }}>
-              <label style={{ display: 'block', fontSize: '12px', color: '#64748b', marginBottom: '4px', fontWeight: '600', textTransform: 'uppercase' }}>Location</label>
-              <select value={data.location} onChange={e => handleChange('location', e.target.value)}
-                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', backgroundColor: '#eef2ff', color: '#312e81', fontWeight: 'bold', outline: 'none', fontSize: '15px' }}>
-                <option value="" disabled>Select Location</option>
-                {locations.map(loc => <option key={loc} value={loc}>{loc}</option>)}
-              </select>
-            </div>
-            <InputField label="Physical Quantity" type="number" value={data.qty} onChange={e => handleChange('qty', e.target.value)} placeholder="0" />
-          </div>
-
-        </div>
-
-        <div style={{ backgroundColor: 'white', padding: '20px', borderTop: '1px solid #e2e8f0' }}>
-          <button onClick={save} style={{ width: '100%', padding: '16px', borderRadius: '12px', backgroundColor: '#4f46e5', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 'bold', fontSize: '18px', boxShadow: '0 4px 14px rgba(79, 70, 229, 0.4)', border: 'none', cursor: 'pointer' }}>
-            <IconSave /> Record Count
-          </button>
-        </div>
-      </div>
-    );
-  };
-
-  // MAIN APP COMPONENT
-  const StockTakeApp = () => {
-    const [view, setView] = useState('camera'); // camera | processing | review | saving
-    const [images, setImages] = useState([]);
-    const [extractedData, setExtractedData] = useState({});
-    const [masterData, setMasterData] = useState([]);
-
-    const locations = [
-      "Pharmacy Level 1", "Lab Level 1", "Mini Pharmacy Level 3",
-      "Lab Level 2", "Store Level 2", "Physiotherapy room"
-    ];
-
-    // Fetch master data on load to match IDs later
-    useEffect(() => {
-      api("GET", "/api/master/all").then(data => {
-        if (data) {
-           // We need to filter out 'unavailable'/'not-available' items at the frontend 
-           // since getAllMasterItems returns them if we use a different endpoint or if we want to be safe.
-           // Wait, getAllMasterItems is in gsorder.js and it already filters them!
-           // But just in case Stock Take uses a different status field or we need to be absolutely sure:
-           const availableData = data.filter(item => {
-               if(!item.status) return true; // If status wasn't fetched, assume available
-               const s = String(item.status).trim().toLowerCase();
-               return s !== 'unavailable' && s !== 'not-available';
-           });
-           setMasterData(availableData);
-        }
-      }).catch(err => { console.error("Failed:", err); });
-    }, []);
-
-    const processImages = (imageArray) => {
-      setView('processing');
-      setImages(imageArray);
-
-      // We pass all images to the backend to extract everything in one prompt
-      // Extract base64 properly
-      const b64Array = imageArray.map(img => img.split(',')[1]);
-
-      api("POST", "/api/stocktake/analyze-image", {images: b64Array}).then(result => {
-        if (result.error) {
-          alert("AI Error: " + result.error);
-        }
-
-        // Pass raw AI result directly — fuzzy matching happens in ReviewScreen
-        setExtractedData({
-          itemName: result.productName || '',
-          batch: result.batchNumber || '',
-          expiry: result.expiryDate || ''
-        });
-
-        setView('review');
-
-      }).catch(err => {
-        alert("Extraction failed: " + err);
-        setView('camera');
-      });
-    };
-
-    const saveRecord = (finalData) => {
-      setView('saving');
-      // Clean up missing/empty fields
-      const payload = {
-        location: finalData.location,
-        stockId: finalData.stockId || 'AI-SCAN',
-        itemName: finalData.itemName || 'Unknown Item',
-        uom: finalData.uom || 'N/A',
-        group: 'N/A',
-        cost: finalData.cost || 0,
-        qty: parseFloat(finalData.qty) || 0,
-        batch: finalData.batch || '',
-        expiry: finalData.expiry || ''
-      };
-
-      api("POST", "/api/stocktake/submit", payload).then(() => {
-        // Success! Give momentary feedback then back to camera
-        setView('camera');
-        setImages([]);
-        setExtractedData({});
-      }).catch(err => {
-        alert("Error saving: " + err.message);
-        setView('review');
-      });
-    };
-
-    if (view === 'processing') return <LoadingScreen message="Extracting details..." />;
-    if (view === 'saving') return <LoadingScreen message="Saving stock count..." />;
-    if (view === 'review') return <ReviewScreen initialData={extractedData} onSave={saveRecord} onBack={() => setView('camera')} locations={locations} masterData={masterData} />;
-
-    return <CameraScreen onCaptureComplete={processImages} />;
-  };
-
-  // Render the React application into the root div
-  const rootEl = document.getElementById('stock-take-root');
-  if (rootEl) {
-    const root = ReactDOM.createRoot(rootEl);
-    root.render(<StockTakeApp />);
-  }
-</script>
+<script defer src="stocktake.js"></script>
 </div>
     <div id="module-stock_disposal" class="spa-module">
 <style>
@@ -3657,12 +3200,17 @@ function olTick(id, field, el) {
 function api(method, path, body) {
   var opts = { method: method, headers: { 'Content-Type': 'application/json' } };
   if (body) opts.body = JSON.stringify(body);
-  return fetch('/pims' + path, opts).then(function(r) {
+  var prefix = location.pathname.indexOf('/pims') === 0 ? '/pims' : '';
+  return fetch(prefix + path, opts).then(function(r) {
     return r.json().catch(function() { return {}; }).then(function(data) {
       if (!r.ok) throw new Error(data.message || 'HTTP ' + r.status);
       return data;
     });
   });
+}
+
+function masterSearchItems(query) {
+  return api("GET", "/api/master/search?q=" + encodeURIComponent(query));
 }
 
 // SPA switching
@@ -3718,7 +3266,7 @@ function resetIdleTimer() {
   if (document.getElementById('login-overlay').style.display === 'flex') return;
   clearTimeout(idleTimer);
   idleTimer = setTimeout(function() {
-    fetch('/pims/api/auth/logout', {method: 'POST', keepalive: true}).finally(showLogin);
+    api('POST', '/api/auth/logout').finally(showLogin);
   }, IDLE_TIMEOUT_MS);
 }
 function startIdleTimer() { resetIdleTimer(); }
@@ -3785,6 +3333,7 @@ function loadUser() {
 // Module loading
 function loadModule(name) {
   if (name === 'dashboard' && typeof loadDashboard === 'function') loadDashboard();
+  if (name === 'stock_take' && typeof window.loadStockTake === 'function') window.loadStockTake();
   if (name === 'scan_history' && typeof loadScanHistory === 'function') loadScanHistory();
   if (name === 'order_list' && typeof loadOrderList === 'function') loadOrderList();
   if (name === 'users' && typeof usr_load === 'function') usr_load();
@@ -3808,11 +3357,7 @@ function doChangePassword() {
   if (!old || !n1) { err.innerText = 'Fill all fields'; err.style.display = 'block'; return; }
   if (n1.length < 6) { err.innerText = 'New password too short (min 6)'; err.style.display = 'block'; return; }
   if (n1 !== n2) { err.innerText = 'Passwords do not match'; err.style.display = 'block'; return; }
-  fetch('/pims/api/auth/change-password', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({oldPassword: old, newPassword: n1})
-  }).then(function(r) { return r.json().then(function(data) { if (!r.ok) throw new Error(data.message || 'Failed'); return data; }); })
+  api('POST', '/api/auth/change-password', {oldPassword: old, newPassword: n1})
   .then(function() {
     alert('Password changed successfully');
     document.getElementById('pw-modal').style.display = 'none';

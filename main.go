@@ -40,41 +40,41 @@ func main() {
 	mux.HandleFunc("/api/auth/change-password", handler.Recover(h.AuthMiddleware(h.HandleChangePassword)))
 
 	// Master
-	mux.HandleFunc("/api/master/chunk", handler.Recover(h.HandleMasterChunk))
-	mux.HandleFunc("/api/master/search", handler.Recover(h.HandleMasterSearch))
+	mux.HandleFunc("/api/master/chunk", handler.Recover(h.AuthMiddleware(h.HandleMasterChunk)))
+	mux.HandleFunc("/api/master/search", handler.Recover(h.AuthMiddleware(h.HandleMasterSearch)))
 	mux.HandleFunc("/api/master/replace", handler.Recover(h.AdminMiddleware(h.HandleMasterReplace)))
-	mux.HandleFunc("/api/master/all", handler.Recover(h.HandleMasterAll))
+	mux.HandleFunc("/api/master/all", handler.Recover(h.AuthMiddleware(h.HandleMasterAll)))
 
 	// Inventory
-	mux.HandleFunc("/api/inventory/chunk", handler.Recover(h.HandleInventoryChunk))
+	mux.HandleFunc("/api/inventory/chunk", handler.Recover(h.AuthMiddleware(h.HandleInventoryChunk)))
 	mux.HandleFunc("/api/inventory/replace", handler.Recover(h.AdminMiddleware(h.HandleInventoryReplace)))
 
 	// Indents
-	mux.HandleFunc("/api/indent/master-data", handler.Recover(h.HandleIndentMasterData))
+	mux.HandleFunc("/api/indent/master-data", handler.Recover(h.AuthMiddleware(h.HandleIndentMasterData)))
 	mux.HandleFunc("/api/indent/submit", handler.Recover(h.AuthMiddleware(h.HandleIndentSubmit)))
 	mux.HandleFunc("/api/indent/approve", handler.Recover(h.AuthMiddleware(h.HandleIndentApprove)))
 	mux.HandleFunc("/api/indent/reject", handler.Recover(h.AuthMiddleware(h.HandleIndentReject)))
 
 	// GRN
-	mux.HandleFunc("/api/grn/master-data", handler.Recover(h.HandleGRNMasterData))
+	mux.HandleFunc("/api/grn/master-data", handler.Recover(h.AuthMiddleware(h.HandleGRNMasterData)))
 	mux.HandleFunc("/api/grn/submit", handler.Recover(h.AuthMiddleware(h.HandleGRNSubmit)))
 
 	// Stock Take
 	mux.HandleFunc("/api/stocktake/submit", handler.Recover(h.AuthMiddleware(h.HandleStockTakeSubmit)))
-	mux.HandleFunc("/api/stocktake/today", handler.Recover(h.HandleStockTakeToday))
-	mux.HandleFunc("/api/stocktake/history", handler.Recover(h.HandleStockTakeHistory))
+	mux.HandleFunc("/api/stocktake/today", handler.Recover(h.AuthMiddleware(h.HandleStockTakeToday)))
+	mux.HandleFunc("/api/stocktake/history", handler.Recover(h.AuthMiddleware(h.HandleStockTakeHistory)))
 	mux.HandleFunc("/api/stocktake/analyze-image", handler.Recover(h.AuthMiddleware(h.HandleStockTakeAnalyzeImage)))
 
 	// Disposal
-	mux.HandleFunc("/api/disposal/search", handler.Recover(h.HandleDisposalSearch))
+	mux.HandleFunc("/api/disposal/search", handler.Recover(h.AuthMiddleware(h.HandleDisposalSearch)))
 	mux.HandleFunc("/api/disposal/submit", handler.Recover(h.AuthMiddleware(h.HandleDisposalSubmit)))
 
 	// Analysis
-	mux.HandleFunc("/api/analysis/run", handler.Recover(h.HandleAnalysisRun))
-	mux.HandleFunc("/api/analysis/today", handler.Recover(h.HandleAnalysisToday))
+	mux.HandleFunc("/api/analysis/run", handler.Recover(h.AuthMiddleware(h.HandleAnalysisRun)))
+	mux.HandleFunc("/api/analysis/today", handler.Recover(h.AuthMiddleware(h.HandleAnalysisToday)))
 
 	// Expiry
-	mux.HandleFunc("/api/expiry/list", handler.Recover(h.HandleExpiryList))
+	mux.HandleFunc("/api/expiry/list", handler.Recover(h.AuthMiddleware(h.HandleExpiryList)))
 	mux.HandleFunc("/api/expiry/update-remark", handler.Recover(h.AuthMiddleware(h.HandleExpiryUpdateRemark)))
 
 	// Specs
@@ -93,7 +93,7 @@ func main() {
 	// Order
 	mux.HandleFunc("/api/order/prf-number", handler.Recover(h.AuthMiddleware(h.HandleOrderPRFNumber)))
 	mux.HandleFunc("/api/order/generate", handler.Recover(h.AuthMiddleware(h.HandleOrderGenerate)))
-	mux.HandleFunc("/api/order/list", handler.Recover(h.HandleOrderList))
+	mux.HandleFunc("/api/order/list", handler.Recover(h.AuthMiddleware(h.HandleOrderList)))
 	mux.HandleFunc("/api/order/tick", handler.Recover(h.AuthMiddleware(h.HandleOrderTick)))
 
 	// SPA
