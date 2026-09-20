@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 
   <style>
     :root {
@@ -2885,11 +2884,26 @@ function usr_del(id, btn) {
 
 <script>
   let import_parsedData = null;
+  let import_xlsxPromise;
   const import_fileInput = document.getElementById('import_fileInput');
   const import_dropZone = document.getElementById('import_dropZone');
   const import_uploadBtn = document.getElementById('import_uploadBtn');
   const import_status = document.getElementById('import_status');
   const import_preview = document.getElementById('import_preview');
+
+  function ensureImportXLSX() {
+    if (window.XLSX) return Promise.resolve();
+    if (!import_xlsxPromise) {
+      import_xlsxPromise = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+        script.onload = resolve;
+        script.onerror = () => { import_xlsxPromise = null; reject(new Error('Excel parser failed to load.')); };
+        document.head.appendChild(script);
+      });
+    }
+    return import_xlsxPromise;
+  }
 
   import_dropZone.addEventListener('click', () => import_fileInput.click());
   import_dropZone.addEventListener('dragover', (e) => { e.preventDefault(); import_dropZone.classList.add('dragover'); });
@@ -2903,7 +2917,14 @@ function usr_del(id, btn) {
     if (import_fileInput.files.length) parseExcel(import_fileInput.files[0]);
   });
 
-  function parseExcel(file) {
+  async function parseExcel(file) {
+    try {
+      await ensureImportXLSX();
+    } catch (err) {
+      import_status.className = 'imp-status error';
+      import_status.textContent = err.message;
+      return;
+    }
     import_status.className = 'imp-status info';
     import_status.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Parsing file...';
     import_uploadBtn.disabled = true;
@@ -3337,6 +3358,10 @@ function loadModule(name) {
   if (name === 'scan_history' && typeof loadScanHistory === 'function') loadScanHistory();
   if (name === 'order_list' && typeof loadOrderList === 'function') loadOrderList();
   if (name === 'users' && typeof usr_load === 'function') usr_load();
+  if (name === 'import_data') ensureImportXLSX().catch(function(err) {
+    import_status.className = 'imp-status error';
+    import_status.textContent = err.message;
+  });
 }
 
 // Init
