@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -65,11 +66,15 @@ func (rl *rateLimiter) record(ip string) {
 }
 
 func getClientIP(r *http.Request) string {
+	// Only the LAST entry of X-Forwarded-For is trusted. Caddy appends the
+	// real client IP to any client-supplied chain, so earlier entries are
+	// attacker-controlled; trusting the first (or the whole chain) would
+	// let an attacker rotate IPs and bypass the login rate limit.
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		return xff
-	}
-	if xri := r.Header.Get("X-Real-IP"); xri != "" {
-		return xri
+		if i := strings.LastIndex(xff, ","); i >= 0 {
+			return strings.TrimSpace(xff[i+1:])
+		}
+		return strings.TrimSpace(xff)
 	}
 	// Strip port from RemoteAddr
 	ip := r.RemoteAddr

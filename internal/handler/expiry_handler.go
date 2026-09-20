@@ -17,7 +17,8 @@ func (h *Handler) HandleExpiryList(w http.ResponseWriter, r *http.Request) {
 	if page <= 0 {
 		page = 1
 	}
-	items, err := db.GetExpiryList(h.DB, page-1, pageSize)
+	dbConn, _ := h.databases(r.Context())
+	items, err := db.GetExpiryList(dbConn, page-1, pageSize)
 	if err != nil {
 		h.Error(w, 500, "Server Error: "+err.Error())
 		return

@@ -7,7 +7,8 @@ import (
 )
 
 func (h *Handler) HandleAnalysisRun(w http.ResponseWriter, r *http.Request) {
-	result, err := db.RunStockAnalysis(h.DB, h.StockDB)
+	dbConn, stockDB := h.databases(r.Context())
+	result, err := db.RunStockAnalysis(dbConn, stockDB)
 	if err != nil {
 		h.Error(w, 500, "Analysis failed: "+err.Error())
 		return
@@ -22,7 +23,8 @@ func (h *Handler) HandleAnalysisRun(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) HandleAnalysisToday(w http.ResponseWriter, r *http.Request) {
-	result, err := db.RunStockAnalysis(h.DB, h.StockDB)
+	dbConn, stockDB := h.databases(r.Context())
+	result, err := db.RunStockAnalysis(dbConn, stockDB)
 	if err != nil {
 		h.Error(w, 500, "Server Error: "+err.Error())
 		return

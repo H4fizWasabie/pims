@@ -7,7 +7,8 @@ import (
 )
 
 func (h *Handler) HandleDashboardSummary(w http.ResponseWriter, r *http.Request) {
-	summary, err := db.GetDashboardSummary(h.DB, h.StockDB)
+	dbConn, stockDB := h.databases(r.Context())
+	summary, err := db.GetDashboardSummary(dbConn, stockDB)
 	if err != nil {
 		h.Error(w, 500, "Server Error: "+err.Error())
 		return

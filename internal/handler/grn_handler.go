@@ -8,7 +8,8 @@ import (
 )
 
 func (h *Handler) HandleGRNMasterData(w http.ResponseWriter, r *http.Request) {
-	data, err := db.GetGRNMasterData(h.DB)
+	dbConn, _ := h.databases(r.Context())
+	data, err := db.GetGRNMasterData(dbConn)
 	if err != nil {
 		h.Error(w, 500, "Server Error: "+err.Error())
 		return

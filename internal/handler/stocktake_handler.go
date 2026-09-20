@@ -38,7 +38,8 @@ func (h *Handler) HandleStockTakeSubmit(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *Handler) HandleStockTakeToday(w http.ResponseWriter, r *http.Request) {
-	items, err := db.GetTodayStockTake(h.DB)
+	dbConn, _ := h.databases(r.Context())
+	items, err := db.GetTodayStockTake(dbConn)
 	if err != nil {
 		h.Error(w, 500, "Server Error: "+err.Error())
 		return
@@ -52,7 +53,8 @@ type ocrRequest struct {
 
 func (h *Handler) HandleStockTakeHistory(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	items, err := db.GetStockTakeHistory(h.DB, q.Get("group"), q.Get("dateFrom"), q.Get("dateTo"))
+	dbConn, _ := h.databases(r.Context())
+	items, err := db.GetStockTakeHistory(dbConn, q.Get("group"), q.Get("dateFrom"), q.Get("dateTo"))
 	if err != nil {
 		h.Error(w, 500, "Server Error: "+err.Error())
 		return

@@ -33,8 +33,19 @@ func main() {
 		log.Fatalf("migrate: %v", err)
 	}
 
+	// Demo sessions read fabricated data from an isolated schema, never
+	// the real item master / Procura stock.
+	if err := db.EnsureDemoSchema(database); err != nil {
+		log.Fatalf("demo schema: %v", err)
+	}
+	demoDatabase, err := db.ConnectDemo(cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("demo db: %v", err)
+	}
+	defer demoDatabase.Close()
+
 	staticFS, _ := fs.Sub(staticFiles, "static")
-	h := &handler.Handler{DB: database, StockDB: stockDatabase, Cfg: cfg, StaticFS: staticFS}
+	h := &handler.Handler{DB: database, StockDB: stockDatabase, DemoDB: demoDatabase, Cfg: cfg, StaticFS: staticFS}
 
 	mux := http.NewServeMux()
 

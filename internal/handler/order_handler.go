@@ -13,7 +13,8 @@ type orderRequest struct {
 }
 
 func (h *Handler) HandleOrderPRFNumber(w http.ResponseWriter, r *http.Request) {
-	prfNo, err := db.NextPRFNumber(h.DB)
+	dbConn, _ := h.databases(r.Context())
+	prfNo, err := db.NextPRFNumber(dbConn)
 	if err != nil {
 		h.Error(w, 500, "Server Error: "+err.Error())
 		return
@@ -52,7 +53,8 @@ func (h *Handler) HandleOrderGenerate(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) HandleOrderList(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	items, err := db.GetOrders(h.DB, q.Get("department"), q.Get("dateFrom"), q.Get("dateTo"))
+	dbConn, _ := h.databases(r.Context())
+	items, err := db.GetOrders(dbConn, q.Get("department"), q.Get("dateFrom"), q.Get("dateTo"))
 	if err != nil {
 		h.Error(w, 500, "Server Error: "+err.Error())
 		return

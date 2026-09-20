@@ -13,7 +13,8 @@ func (h *Handler) HandleDisposalSearch(w http.ResponseWriter, r *http.Request) {
 		h.JSON(w, 200, []any{})
 		return
 	}
-	items, err := db.SearchDisposalBatches(h.DB, q)
+	dbConn, _ := h.databases(r.Context())
+	items, err := db.SearchDisposalBatches(dbConn, q)
 	if err != nil {
 		h.Error(w, 500, "Server Error: "+err.Error())
 		return

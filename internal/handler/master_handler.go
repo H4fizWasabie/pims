@@ -14,7 +14,8 @@ func (h *Handler) HandleMasterChunk(w http.ResponseWriter, r *http.Request) {
 	if pageSize <= 0 {
 		pageSize = 50
 	}
-	items, err := db.GetMasterChunk(h.DB, h.StockDB, page, pageSize)
+	dbConn, stockDB := h.databases(r.Context())
+	items, err := db.GetMasterChunk(dbConn, stockDB, page, pageSize)
 	if err != nil {
 		h.Error(w, 500, "Server Error: "+err.Error())
 		return
@@ -28,7 +29,8 @@ func (h *Handler) HandleMasterSearch(w http.ResponseWriter, r *http.Request) {
 		h.JSON(w, 200, []any{})
 		return
 	}
-	items, err := db.SearchMaster(h.DB, h.StockDB, q)
+	dbConn, stockDB := h.databases(r.Context())
+	items, err := db.SearchMaster(dbConn, stockDB, q)
 	if err != nil {
 		h.Error(w, 500, "Server Error: "+err.Error())
 		return
@@ -50,7 +52,8 @@ func (h *Handler) HandleMasterReplace(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) HandleMasterAll(w http.ResponseWriter, r *http.Request) {
-	items, err := db.GetAllMasterItems(h.DB, h.StockDB)
+	dbConn, stockDB := h.databases(r.Context())
+	items, err := db.GetAllMasterItems(dbConn, stockDB)
 	if err != nil {
 		h.Error(w, 500, "Server Error: "+err.Error())
 		return
