@@ -17,6 +17,21 @@ import (
 	"github.com/H4fizWasabie/pims/internal/handler"
 )
 
+func TestImportLoadsSheetJSLazily(t *testing.T) {
+	html, err := os.ReadFile("static/index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	page := string(html)
+	if strings.Contains(page, `<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>`) {
+		t.Fatal("SheetJS must not block the initial page load")
+	}
+	if strings.Count(page, "xlsx.full.min.js") != 1 || !strings.Contains(page, "function ensureImportXLSX()") {
+		t.Fatal("Import Data must lazy-load SheetJS")
+	}
+}
+
 // testServer wraps a test HTTP server with DB access
 type testServer struct {
 	*httptest.Server
