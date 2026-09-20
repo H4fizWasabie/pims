@@ -1640,12 +1640,17 @@
   let indent_selectedItem = null;
   let INDENT_MASTER_DATA = [];
 
-  document.addEventListener('DOMContentLoaded', () => {
+  function loadIndentMasterData() {
+    const loader = document.getElementById('indent_initLoader');
+    loader.style.display = 'flex';
     api("GET", "/api/indent/master-data").then(data => {
       INDENT_MASTER_DATA = data;
-      document.getElementById('indent_initLoader').style.display = 'none';
+    }).catch(err => {
+      alert("Unable to load inventory data: " + err.message);
+    }).finally(() => {
+      loader.style.display = 'none';
     });
-  });
+  }
 
   const indent_searchInput = document.getElementById('indent_searchInput');
   const indent_resultsBox = document.getElementById('indent_searchResults');
@@ -3354,6 +3359,7 @@ function loadUser() {
 // Module loading
 function loadModule(name) {
   if (name === 'dashboard' && typeof loadDashboard === 'function') loadDashboard();
+  if (name === 'indent_form') loadIndentMasterData();
   if (name === 'stock_take' && typeof window.loadStockTake === 'function') window.loadStockTake();
   if (name === 'scan_history' && typeof loadScanHistory === 'function') loadScanHistory();
   if (name === 'order_list' && typeof loadOrderList === 'function') loadOrderList();

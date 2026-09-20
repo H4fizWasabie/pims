@@ -32,6 +32,24 @@ func TestImportLoadsSheetJSLazily(t *testing.T) {
 	}
 }
 
+func TestIndentLoadsMasterDataWhenOpened(t *testing.T) {
+	html, err := os.ReadFile("static/index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	page := string(html)
+	if strings.Contains(page, `document.addEventListener('DOMContentLoaded', () => {
+    api("GET", "/api/indent/master-data")`) {
+		t.Fatal("Indent master data must not load before authentication")
+	}
+	if !strings.Contains(page, "function loadIndentMasterData()") ||
+		!strings.Contains(page, "if (name === 'indent_form') loadIndentMasterData();") ||
+		!strings.Contains(page, "api(\"GET\", \"/api/indent/master-data\").then") {
+		t.Fatal("Indent master data must load when the tab opens")
+	}
+}
+
 // testServer wraps a test HTTP server with DB access
 type testServer struct {
 	*httptest.Server
