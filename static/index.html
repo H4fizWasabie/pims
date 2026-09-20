@@ -8,11 +8,15 @@
 
   <style>
     :root {
-      --primary: #008080;
-      --dark-grey: #1f2937;
-      --light-grey: #f3f4f6;
-      --sidebar-w: 260px;
-      --header-h: 60px;
+      --primary: #0f766e;
+      --primary-strong: #115e59;
+      --primary-soft: #ccfbf1;
+      --dark-grey: #162333;
+      --light-grey: #f5f7fa;
+      --line: #e2e8f0;
+      --muted: #64748b;
+      --sidebar-w: 248px;
+      --header-h: 68px;
     }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     body {
@@ -32,25 +36,29 @@
       height: var(--header-h); display: flex; align-items: center;
       padding: 0 20px; font-family: 'Poppins', sans-serif;
       font-weight: 600; font-size: 1.2rem;
-      background: rgba(0,0,0,0.2); color: #2dd4bf; flex-shrink: 0;
+      background: #11202f; color: #5eead4; flex-shrink: 0;
+      border-bottom: 1px solid rgba(148,163,184,0.14);
     }
-    .nav-scroll { flex: 1; padding: 15px 0; }
+    .nav-scroll { flex: 1; padding: 16px 12px 20px; }
     .nav-group {
       font-size: 0.75rem; color: #9ca3af;
-      padding: 15px 25px 5px; text-transform: uppercase;
+      padding: 18px 14px 7px; text-transform: uppercase;
       letter-spacing: 1px; font-weight: 700;
     }
     .nav-link {
-      display: flex; align-items: center; padding: 12px 25px;
+      display: flex; align-items: center; padding: 11px 14px;
       color: #d1d5db; text-decoration: none; font-size: 0.95rem;
-      border-left: 4px solid transparent; transition: all 0.2s; cursor: pointer;
+      border-left: 3px solid transparent; border-radius: 9px;
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
+      cursor: pointer; margin-bottom: 3px;
     }
-    .nav-link:hover { background: rgba(255,255,255,0.05); color: white; }
+    .nav-link:hover { background: rgba(148,163,184,0.10); color: white; }
     .nav-link.active-tab {
-      background: rgba(0,128,128,0.2); color: #2dd4bf;
+      background: rgba(45,212,191,0.13); color: #5eead4;
       border-left-color: var(--primary);
     }
-    .nav-link i { width: 30px; text-align: center; margin-right: 5px; }
+    .nav-link i { width: 24px; text-align: center; margin-right: 7px; color: #94a3b8; }
+    .nav-link.active-tab i { color: #5eead4; }
     .main-wrapper {
       flex: 1; margin-left: var(--sidebar-w);
       display: flex; flex-direction: column; height: 100%;
@@ -59,13 +67,21 @@
     .top-header {
       height: var(--header-h); background: white;
       display: flex; align-items: center; justify-content: space-between;
-      padding: 0 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); flex-shrink: 0;
+      padding: 0 28px; border-bottom: 1px solid var(--line); flex-shrink: 0;
     }
     .menu-btn { display: none; font-size: 1.5rem; color: var(--dark-grey); cursor: pointer; padding: 5px; }
-    .page-title { font-weight: 600; font-size: 1.1rem; color: var(--dark-grey); text-transform: capitalize; }
-    .content-area { flex: 1; overflow-y: auto; padding: 20px; position: relative; }
+    .page-title { font-weight: 700; font-size: 1.05rem; color: var(--dark-grey); text-transform: capitalize; letter-spacing: -0.01em; }
+    .content-area { flex: 1; overflow-y: auto; padding: 28px clamp(18px, 3vw, 36px); position: relative; }
     .spa-module { display: none; animation: fadeIn 0.3s ease-in-out; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    .demo-banner {
+      display: none; align-items: center; gap: 10px;
+      min-height: 40px; padding: 9px 28px;
+      background: #fffbeb; color: #92400e; border-bottom: 1px solid #fde68a;
+      font-size: 0.82rem; font-weight: 600;
+    }
+    .demo-banner i { color: #d97706; }
+    .demo-banner strong { font-weight: 700; }
     .overlay {
       position: fixed; top: 0; left: 0; right: 0; bottom: 0;
       background: rgba(0,0,0,0.5); z-index: 900; display: none; opacity: 0;
@@ -169,9 +185,11 @@
   </div>
 </div>
 
-<div id="demo-banner" style="display:none;background:#f59e0b;color:#111;text-align:center;padding:7px;font-size:0.85rem;font-weight:600;">Demo Mode — read-only browsing. Data shown is the live system; sign in to make changes.</div>
-
 <div class="main-wrapper">
+  <div id="demo-banner" class="demo-banner">
+    <i class="fa-solid fa-eye"></i>
+    <span>Demo mode — sample data only. <strong>Sign in to access live data and make changes.</strong></span>
+  </div>
   <div class="top-header">
     <div style="display:flex; align-items:center; gap:15px;">
       <i class="fa-solid fa-bars menu-btn" onclick="toggleSidebar()"></i>
@@ -193,14 +211,12 @@
 <style>
   :root {
     --card-bg: #ffffff;
-    --text-primary: #1e293b;
-    --text-secondary: #64748b;
-    --success: #10b981;
-    --warning: #f59e0b;
-    --danger: #ef4444;
-    --primary: #4f46e5;
-    --purple: #7c3aed;
-    --bg-color: #f1f5f9;
+    --text-primary: #162333;
+    --text-secondary: var(--muted);
+    --success: #0f766e;
+    --warning: #b45309;
+    --danger: #b42318;
+    --bg-color: var(--light-grey);
   }
 
   /* --- 1. KPI SCORECARDS --- */
@@ -215,24 +231,20 @@
     background: var(--card-bg);
     padding: 20px;
     border-radius: 12px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    border-left: 5px solid transparent;
+    border: 1px solid var(--line);
     display: flex;
     flex-direction: column;
     justify-content: center;
-    transition: transform 0.2s;
+    min-height: 132px;
+    transition: transform 0.2s, border-color 0.2s;
   }
-  .stat-card:hover { transform: translateY(-2px); }
+  .stat-card:hover { transform: translateY(-1px); border-color: #cbd5e1; }
 
-  .card-blue { border-left-color: #3b82f6; }
-  .card-orange { border-left-color: var(--warning); }
-  .card-green { border-left-color: var(--success); }
-  .card-red { border-left-color: var(--danger); }
-  .card-purple { border-left-color: var(--purple); }
+  .card-blue, .card-orange, .card-green, .card-red, .card-purple { border-left-color: var(--line); }
 
   .stat-title { font-size: 0.8rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
   .stat-value { font-size: 1.8rem; font-weight: 700; color: var(--text-primary); margin: 8px 0; }
-  .stat-icon { font-size: 1.4rem; margin-bottom: 5px; opacity: 0.8; width: fit-content;}
+  .stat-icon { font-size: 1rem; margin-bottom: 14px; opacity: 0.95; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 9px; background: var(--primary-soft);}
 
 
 
@@ -252,7 +264,7 @@
   .table-card {
     background: var(--card-bg);
     border-radius: 12px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    border: 1px solid var(--line);
     overflow: hidden; 
     margin-bottom: 25px;
   }
@@ -261,17 +273,17 @@
     display: flex; 
     justify-content: space-between; 
     align-items: center; 
-    padding: 20px; 
-    border-bottom: 1px solid #e2e8f0; 
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--line);
     background-color: #fff;
   }
 
   .btn-refresh {
-    background: #f1f5f9; color: #475569; border: none; 
-    padding: 8px 15px; border-radius: 6px; cursor: pointer; 
+    background: var(--primary-soft); color: var(--primary-strong); border: 1px solid #99f6e4;
+    padding: 8px 14px; border-radius: 8px; cursor: pointer;
     font-weight: 600; font-size: 0.85rem; transition: background 0.2s;
   }
-  .btn-refresh:hover { background: #e2e8f0; }
+  .btn-refresh:hover { background: #99f6e4; }
 
   .table-responsive { width: 100%; overflow-x: auto; }
 
@@ -279,7 +291,7 @@
   .approval-table th { text-align: left; padding: 15px; background: #f8fafc; font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; }
   .approval-table td { padding: 15px; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; vertical-align: middle; }
 
-  .badge-dept { background: #e0e7ff; color: #4338ca; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; }
+  .badge-dept { background: var(--primary-soft); color: var(--primary-strong); padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; }
   
   .btn-action { border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; margin-right: 5px; transition: transform 0.1s; }
   .btn-action:active { transform: scale(0.95); }
@@ -290,15 +302,20 @@
   .btn-reject { background: #fee2e2; color: #991b1b; }
   .btn-reject:hover:not(:disabled) { background: #fecaca; }
   
-  .loading-msg { text-align: center; padding: 40px; color: var(--text-secondary); font-style: italic; }
+  .loading-msg { text-align: center; padding: 44px; color: var(--text-secondary); font-style: italic; }
 
   @media (max-width: 900px) {
+    .dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 560px) {
+    .dashboard-grid { grid-template-columns: 1fr; }
+    .table-header { align-items: flex-start; gap: 12px; }
   }
 </style>
 
 <div class="dashboard-grid">
   <div class="stat-card card-blue">
-    <div class="stat-icon" style="color:#3b82f6"><i class="fa-solid fa-cubes"></i></div>
+    <div class="stat-icon" style="color:var(--primary)"><i class="fa-solid fa-cubes"></i></div>
     <div class="stat-title">Total SKUs</div>
     <div class="stat-value" id="dash_valTotal">--</div>
   </div>
@@ -310,13 +327,13 @@
   </div>
 
   <div class="stat-card card-purple">
-    <div class="stat-icon" style="color:var(--purple)"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+    <div class="stat-icon" style="color:var(--primary)"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
     <div class="stat-title">New Item Requests</div>
     <div class="stat-value" id="dash_valSpecs">--</div>
   </div>
 
   <div class="stat-card card-red">
-    <div class="stat-icon" style="color:var(--danger)"><i class="fa-solid fa-chart-line"></i></div>
+    <div class="stat-icon" style="color:var(--primary)"><i class="fa-solid fa-chart-line"></i></div>
     <div class="stat-title">Net Variance Today</div>
     <div class="stat-value" id="dash_valVariance" style="font-size:1.4rem;">--</div>
   </div>
@@ -348,9 +365,9 @@
   <div id="dash_emptyMsg" class="loading-msg" style="display:none;">No pending indents.</div>
 </div>
 
-<div class="table-card" style="border-top: 4px solid var(--purple);">
+<div class="table-card">
   <div class="table-header">
-    <div class="section-title" style="margin-bottom:0; font-size:1.1rem; color:var(--purple);">
+    <div class="section-title" style="margin-bottom:0; font-size:1.1rem; color:var(--primary);">
       <i class="fa-solid fa-wand-magic-sparkles" style="margin-right:8px;"></i>
       Pending New Item Requests
     </div>
@@ -3353,7 +3370,7 @@ function loadUser() {
   api('GET', '/api/auth/me').then(function(r) {
     document.getElementById('userEmail').innerText = r.demo ? (r.email || '') + ' (Demo)' : (r.email || 'Not logged in');
     document.getElementById('userActions').style.display = '';
-    document.getElementById('demo-banner').style.display = r.demo ? 'block' : 'none';
+    document.getElementById('demo-banner').style.display = r.demo ? 'flex' : 'none';
     var changePw = document.querySelector('#userActions a');
     if (changePw) changePw.style.display = r.demo ? 'none' : '';
     // Show admin-only nav items
