@@ -13,7 +13,8 @@ func (h *Handler) HandleInventoryChunk(w http.ResponseWriter, r *http.Request) {
 	if pageSize <= 0 {
 		pageSize = 50
 	}
-	items, err := db.GetInventoryChunk(h.DB, h.StockDB, page, pageSize)
+	dbConn, stockDB := h.databases(r.Context())
+	items, err := db.GetInventoryChunk(dbConn, stockDB, page, pageSize)
 	if err != nil {
 		h.Error(w, 500, "Server Error: "+err.Error())
 		return

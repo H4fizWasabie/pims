@@ -17,8 +17,25 @@ import (
 type Handler struct {
 	DB       *sql.DB
 	StockDB  *sql.DB
+	// DemoDB, when set, is the only database demo sessions may read from.
+	// It points at the fabricated-data demo schema. nil keeps the legacy
+	// behaviour (demo sessions read the real DB) for local/test setups.
+	DemoDB   *sql.DB
 	Cfg      *config.Config
 	StaticFS fs.FS
+}
+
+// databases returns the (data, stock) DB pair a request should read from.
+// Demo sessions never see real data: they are routed to the demo schema
+// (with StockDB nil, so stock lookups fall back to the demo inventory
+// table instead of the real Procura stock source).
+func (h *Handler) databases(ctx context.Context) (*sql.DB, *sql.DB) {
+	if h.DemoDB != nil {
+		if u := userFromContext(ctx); u != nil && u.IsDemo {
+			return h.DemoDB, nil
+		}
+	}
+	return h.DB, h.StockDB
 }
 
 func (h *Handler) JSON(w http.ResponseWriter, status int, data any) {

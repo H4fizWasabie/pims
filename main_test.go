@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -45,6 +46,15 @@ func newTestServer(t *testing.T) *testServer {
 		t.Fatalf("migrate: %v", err)
 	}
 
+	// Production parity: demo sessions must read the isolated demo schema.
+	if err := db.EnsureDemoSchema(database); err != nil {
+		t.Fatalf("demo schema: %v", err)
+	}
+	demoDatabase, err := db.ConnectDemo(databaseURL)
+	if err != nil {
+		t.Fatalf("demo db connect: %v", err)
+	}
+
 	cfg := &config.Config{
 		Port:            "0",
 		DatabaseURL:     databaseURL,
@@ -57,32 +67,33 @@ func newTestServer(t *testing.T) *testServer {
 		MasterAdmins:    []string{"admin@pims.local", "admin@test.com", "kisame350@gmail.com"},
 	}
 
-	h := &handler.Handler{DB: database, Cfg: cfg}
+	staticFS, _ := fs.Sub(staticFiles, "static")
+	h := &handler.Handler{DB: database, DemoDB: demoDatabase, Cfg: cfg, StaticFS: staticFS}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/auth/login", handler.Recover(h.HandleLogin))
 	mux.HandleFunc("/api/auth/demo", handler.Recover(h.HandleDemoLogin))
 	mux.HandleFunc("/api/auth/logout", handler.Recover(h.HandleLogout))
 	mux.HandleFunc("/api/auth/me", handler.Recover(h.HandleMe))
-	mux.HandleFunc("/api/master/chunk", handler.Recover(h.HandleMasterChunk))
-	mux.HandleFunc("/api/master/search", handler.Recover(h.HandleMasterSearch))
+	mux.HandleFunc("/api/master/chunk", handler.Recover(h.AuthMiddleware(h.HandleMasterChunk)))
+	mux.HandleFunc("/api/master/search", handler.Recover(h.AuthMiddleware(h.HandleMasterSearch)))
 	mux.HandleFunc("/api/master/replace", handler.Recover(h.AdminMiddleware(h.HandleMasterReplace)))
-	mux.HandleFunc("/api/master/all", handler.Recover(h.HandleMasterAll))
-	mux.HandleFunc("/api/inventory/chunk", handler.Recover(h.HandleInventoryChunk))
+	mux.HandleFunc("/api/master/all", handler.Recover(h.AuthMiddleware(h.HandleMasterAll)))
+	mux.HandleFunc("/api/inventory/chunk", handler.Recover(h.AuthMiddleware(h.HandleInventoryChunk)))
 	mux.HandleFunc("/api/inventory/replace", handler.Recover(h.AdminMiddleware(h.HandleInventoryReplace)))
-	mux.HandleFunc("/api/indent/master-data", handler.Recover(h.HandleIndentMasterData))
+	mux.HandleFunc("/api/indent/master-data", handler.Recover(h.AuthMiddleware(h.HandleIndentMasterData)))
 	mux.HandleFunc("/api/indent/submit", handler.Recover(h.AuthMiddleware(h.HandleIndentSubmit)))
 	mux.HandleFunc("/api/indent/approve", handler.Recover(h.AuthMiddleware(h.HandleIndentApprove)))
 	mux.HandleFunc("/api/indent/reject", handler.Recover(h.AuthMiddleware(h.HandleIndentReject)))
-	mux.HandleFunc("/api/grn/master-data", handler.Recover(h.HandleGRNMasterData))
+	mux.HandleFunc("/api/grn/master-data", handler.Recover(h.AuthMiddleware(h.HandleGRNMasterData)))
 	mux.HandleFunc("/api/grn/submit", handler.Recover(h.AuthMiddleware(h.HandleGRNSubmit)))
 	mux.HandleFunc("/api/stocktake/submit", handler.Recover(h.AuthMiddleware(h.HandleStockTakeSubmit)))
-	mux.HandleFunc("/api/stocktake/today", handler.Recover(h.HandleStockTakeToday))
-	mux.HandleFunc("/api/disposal/search", handler.Recover(h.HandleDisposalSearch))
+	mux.HandleFunc("/api/stocktake/today", handler.Recover(h.AuthMiddleware(h.HandleStockTakeToday)))
+	mux.HandleFunc("/api/disposal/search", handler.Recover(h.AuthMiddleware(h.HandleDisposalSearch)))
 	mux.HandleFunc("/api/disposal/submit", handler.Recover(h.AuthMiddleware(h.HandleDisposalSubmit)))
-	mux.HandleFunc("/api/analysis/run", handler.Recover(h.HandleAnalysisRun))
-	mux.HandleFunc("/api/analysis/today", handler.Recover(h.HandleAnalysisToday))
-	mux.HandleFunc("/api/expiry/list", handler.Recover(h.HandleExpiryList))
+	mux.HandleFunc("/api/analysis/run", handler.Recover(h.AuthMiddleware(h.HandleAnalysisRun)))
+	mux.HandleFunc("/api/analysis/today", handler.Recover(h.AuthMiddleware(h.HandleAnalysisToday)))
+	mux.HandleFunc("/api/expiry/list", handler.Recover(h.AuthMiddleware(h.HandleExpiryList)))
 	mux.HandleFunc("/api/expiry/update-remark", handler.Recover(h.AuthMiddleware(h.HandleExpiryUpdateRemark)))
 	mux.HandleFunc("/api/spec/submit", handler.Recover(h.AuthMiddleware(h.HandleSpecSubmit)))
 	mux.HandleFunc("/api/spec/approve", handler.Recover(h.AuthMiddleware(h.HandleSpecApprove)))
@@ -248,6 +259,73 @@ func TestDemoReadOnly(t *testing.T) {
 	// Demo can log out
 	resp = ts.post("/api/auth/logout", "", cookie)
 	assertStatus(t, resp, 200)
+}
+
+func TestDemoDataIsolation(t *testing.T) {
+	ts := newTestServer(t)
+	defer ts.Close()
+	defer ts.db.Close()
+
+	// Seed the REAL master with a canary supplier + item name.
+	if _, err := ts.db.Exec(`DELETE FROM master_items`); err != nil {
+		t.Fatalf("clear master: %v", err)
+	}
+	if _, err := ts.db.Exec(`INSERT INTO master_items (stock_id, item_name, uom, item_group, cost, last_supplier, product_status)
+		VALUES ('REAL-001', 'Real Canary Item Alpha', 'pack', 'General', 123.45, 'REAL-SUPPLIER-XYZ', 'Available')`); err != nil {
+		t.Fatalf("seed real master: %v", err)
+	}
+
+	// Demo login: no credentials needed
+	resp := ts.post("/api/auth/demo", "", "")
+	assertStatus(t, resp, 200)
+	cookie := ""
+	for _, c := range resp.Header.Values("Set-Cookie") {
+		if strings.HasPrefix(c, "pims_session=") {
+			cookie = strings.Split(c, ";")[0]
+		}
+	}
+	if cookie == "" {
+		t.Fatal("no session cookie")
+	}
+
+	// Demo browsing must never expose real items or suppliers.
+	resp = ts.get("/api/master/all", cookie)
+	assertStatus(t, resp, 200)
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+
+	var items []map[string]any
+	if err := json.Unmarshal(body, &items); err != nil {
+		t.Fatalf("decode master/all: %v (%s)", err, string(body))
+	}
+	if len(items) == 0 {
+		t.Fatal("demo master/all returned no items")
+	}
+	sawFake := false
+	for _, it := range items {
+		if name, _ := it["itemName"].(string); strings.Contains(name, "Real Canary Item") {
+			t.Errorf("demo session saw real item name %q", name)
+		}
+		if sup, _ := it["lastSupplier"].(string); sup == "REAL-SUPPLIER-XYZ" {
+			t.Errorf("demo session saw real supplier %q", sup)
+		}
+		if id, _ := it["stockId"].(string); strings.HasPrefix(id, "DEMO-") {
+			sawFake = true
+		}
+	}
+	if !sawFake {
+		t.Errorf("demo session did not receive fabricated demo items")
+	}
+
+	// And an authenticated real user still sees the real data.
+	adminCookie := ts.login(t, "admin@pims.local", "admin123")
+	resp = ts.get("/api/master/all", adminCookie)
+	assertStatus(t, resp, 200)
+	body, _ = io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if !strings.Contains(string(body), "Real Canary Item Alpha") {
+		t.Errorf("real user lost access to real master data")
+	}
 }
 
 func TestMasterItems(t *testing.T) {

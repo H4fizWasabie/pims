@@ -8,7 +8,8 @@ import (
 )
 
 func (h *Handler) HandleIndentMasterData(w http.ResponseWriter, r *http.Request) {
-	items, err := db.GetIndentMasterData(h.DB, h.StockDB)
+	dbConn, stockDB := h.databases(r.Context())
+	items, err := db.GetIndentMasterData(dbConn, stockDB)
 	if err != nil {
 		h.Error(w, 500, "Server Error: "+err.Error())
 		return
