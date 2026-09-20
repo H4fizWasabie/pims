@@ -3299,7 +3299,7 @@ function hideLogin() {
   startIdleTimer();
 }
 var idleTimer = null;
-var IDLE_TIMEOUT_MS = 15 * 60 * 1000;
+var IDLE_TIMEOUT_MS = 10 * 60 * 1000;
 var HEARTBEAT_MS = 5 * 60 * 1000;
 function resetIdleTimer() {
   if (document.getElementById('login-overlay').style.display === 'flex') return;
@@ -3314,7 +3314,7 @@ function stopIdleTimer() { clearTimeout(idleTimer); idleTimer = null; }
   document.addEventListener(event, resetIdleTimer, {passive: true});
 });
 setInterval(function() {
-  if (document.visibilityState !== 'visible') return;
+  if (document.visibilityState !== 'visible' || document.getElementById('login-overlay').style.display === 'flex') return;
   api('GET', '/api/auth/me').catch(showLogin);
 }, HEARTBEAT_MS);
 document.addEventListener('visibilitychange', function() {

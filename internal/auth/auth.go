@@ -8,6 +8,8 @@ import (
 	"github.com/H4fizWasabie/pims/internal/db"
 )
 
+const sessionCookieMaxAge = 10 * 60
+
 func Login(database *sql.DB, email, password string) (string, error) {
 	user, err := db.GetUserByEmail(database, email)
 	if err != nil {
@@ -35,7 +37,7 @@ func SetSessionCookie(w http.ResponseWriter, token string) {
 		HttpOnly: true,
 		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
-		MaxAge:   900,
+		MaxAge:   sessionCookieMaxAge,
 	})
 }
 
