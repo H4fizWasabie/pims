@@ -50,6 +50,27 @@ func TestIndentLoadsMasterDataWhenOpened(t *testing.T) {
 	}
 }
 
+func TestExpiryAndGRNLoadDataWhenOpened(t *testing.T) {
+	html, err := os.ReadFile("static/index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	page := string(html)
+	if strings.Contains(page, "document.addEventListener('DOMContentLoaded', () => exp_loadData(1));") ||
+		strings.Contains(page, `document.addEventListener('DOMContentLoaded', () => {
+    grn_resetForm();
+    api("GET", "/api/grn/master-data")`) {
+		t.Fatal("Expiry and GRN data must not load before authentication")
+	}
+	if !strings.Contains(page, "if (name === 'expiry_tracking') exp_loadData(1);") ||
+		!strings.Contains(page, "if (name === 'grn') grn_loadMasterData();") ||
+		!strings.Contains(page, "function grn_loadMasterData()") ||
+		!strings.Contains(page, "function exp_renderError(") {
+		t.Fatal("Expiry and GRN data must load when their tabs open")
+	}
+}
+
 // testServer wraps a test HTTP server with DB access
 type testServer struct {
 	*httptest.Server

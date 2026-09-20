@@ -2044,6 +2044,7 @@
       <button class="grn-btn-add" onclick="grn_addItem()">+ Add</button>
     </div>
   </div>
+  <div id="grn_status" style="display:none; margin:12px 0; color:#b91c1c; font-size:0.9rem;"></div>
 
   <div style="text-align:right;">
     <button onclick="grn_undoLastItem()" style="background:none; border:none; color:#f59e0b; cursor:pointer; font-weight:600;"><i class="fa-solid fa-rotate-left"></i> Undo Last Item</button>
@@ -2067,16 +2068,25 @@
   let GRN_CART_ITEMS = [];
   let GRN_SUBMISSION_TOKEN = ""; 
 
-  document.addEventListener('DOMContentLoaded', () => {
+  function grn_loadMasterData() {
     grn_resetForm(); 
+    const status = document.getElementById('grn_status');
+    status.textContent = 'Loading inventory data...';
+    status.style.display = 'block';
+    status.style.color = '#64748b';
     api("GET", "/api/grn/master-data").then(data => {
       GRN_MASTER_ITEMS = data.items;
       const dl = document.getElementById('grn_supplierList');
       (data.suppliers || []).forEach(s => {
         const opt = document.createElement('option'); opt.value = s; dl.appendChild(opt);
       });
+      status.style.display = 'none';
+    }).catch(err => {
+      status.textContent = 'Unable to load inventory data: ' + err.message;
+      status.style.display = 'block';
+      status.style.color = '#b91c1c';
     });
-  });
+  }
 
   function grn_resetForm() {
     GRN_SUBMISSION_TOKEN = crypto.randomUUID();
@@ -2712,11 +2722,14 @@
         let exp_currentPage = 1;
         const exp_pageSize = 20;
         
-        document.addEventListener('DOMContentLoaded', () => exp_loadData(1));
-
         function exp_loadData(page) {
           exp_currentPage = page || 1;
-          api("GET", "/api/expiry/list?page=" + exp_currentPage + "&pageSize=" + exp_pageSize).then(exp_renderList).catch(err => alert("Error: " + err));
+          api("GET", "/api/expiry/list?page=" + exp_currentPage + "&pageSize=" + exp_pageSize).then(exp_renderList).catch(exp_renderError);
+        }
+
+        function exp_renderError() {
+          document.getElementById('exp_list').innerHTML = '<div class="exp-loader" style="color:#b91c1c;">Unable to load expiry data. Reopen this tab to retry.</div>';
+          document.getElementById('exp_pagination').style.display = 'none';
         }
 
         function exp_changePage(delta) {
@@ -3360,9 +3373,11 @@ function loadUser() {
 function loadModule(name) {
   if (name === 'dashboard' && typeof loadDashboard === 'function') loadDashboard();
   if (name === 'indent_form') loadIndentMasterData();
+  if (name === 'grn') grn_loadMasterData();
   if (name === 'stock_take' && typeof window.loadStockTake === 'function') window.loadStockTake();
   if (name === 'scan_history' && typeof loadScanHistory === 'function') loadScanHistory();
   if (name === 'order_list' && typeof loadOrderList === 'function') loadOrderList();
+  if (name === 'expiry_tracking') exp_loadData(1);
   if (name === 'users' && typeof usr_load === 'function') usr_load();
   if (name === 'import_data') ensureImportXLSX().catch(function(err) {
     import_status.className = 'imp-status error';
