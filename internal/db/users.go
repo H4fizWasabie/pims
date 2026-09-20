@@ -9,7 +9,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-const sessionIdleTimeout = 15 * time.Minute
+const sessionIdleTimeout = 10 * time.Minute
 
 type User struct {
 	ID           int
@@ -69,7 +69,7 @@ func ValidateSession(d *sql.DB, token string) (*User, error) {
 	if err != nil {
 		return nil, err
 	}
-	if _, err := d.Exec(`UPDATE sessions SET expires_at = NOW() + INTERVAL '15 minutes' WHERE token = $1`, token); err != nil {
+	if _, err := d.Exec(`UPDATE sessions SET expires_at = $1 WHERE token = $2`, time.Now().Add(sessionIdleTimeout), token); err != nil {
 		return nil, err
 	}
 	return &u, nil
