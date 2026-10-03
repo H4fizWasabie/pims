@@ -5,11 +5,12 @@ After=network.target postgresql.service
 [Service]
 Type=simple
 User=pims
-WorkingDirectory=/opt/pims
-EnvironmentFile=/opt/pims/pims.env
-ExecStart=/opt/pims/pims
+WorkingDirectory=/opt
+EnvironmentFile=/opt/pims.env
+ExecStart=/usr/local/bin/pims
 Restart=on-failure
 RestartSec=5
+TimeoutStopSec=20
 
 [Install]
 WantedBy=multi-user.target
