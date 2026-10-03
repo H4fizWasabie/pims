@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -378,5 +379,25 @@ func TestMigrationSeedsNoDefaultPassword(t *testing.T) {
 	}
 	if strings.Contains(string(sql), "admin123") {
 		t.Error("migration.sql still seeds a default password")
+	}
+}
+
+// Guards the XSS fix: server/user text must go through esc() before innerHTML.
+func TestFrontendEscapesUserText(t *testing.T) {
+	html, err := os.ReadFile("static/index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := regexp.MustCompile(`\$\{(item|i)\.(itemName|stockId|uom|batch|requester|reqId|justification|name|expiry|label)\}|'\s*\+\s*(u|r)\.(email|itemName|department|prfNo|location|uom)\s*\+\s*'`)
+	for n, line := range strings.Split(string(html), "\n") {
+		if strings.Contains(line, ".value =") {
+			continue // form fields take text, not HTML
+		}
+		if raw.MatchString(line) {
+			t.Errorf("index.html:%d interpolates unescaped text: %s", n+1, strings.TrimSpace(line))
+		}
+	}
+	if strings.Contains(string(html), "_addCustom('${") {
+		t.Error("custom-item onclick still splices user text into inline JS")
 	}
 }
