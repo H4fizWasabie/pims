@@ -3,9 +3,12 @@ package ocr
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"net/http"
+	"time"
 )
+
+// client bounds every provider call; the default client waits forever.
+var client = &http.Client{Timeout: 45 * time.Second}
 
 type OCRResult struct {
 	ProductName string `json:"productName"`
@@ -36,7 +39,7 @@ func analyzeOpenRouter(b64Images []string, apiKey, model string) *OCRResult {
 	content = append(content, map[string]any{"type": "text", "text": "Analyze these product images and extract the details."})
 	for _, b64 := range b64Images {
 		content = append(content, map[string]any{
-			"type": "image_url",
+			"type":      "image_url",
 			"image_url": map[string]string{"url": "data:image/jpeg;base64," + b64},
 		})
 	}
@@ -47,8 +50,8 @@ func analyzeOpenRouter(b64Images []string, apiKey, model string) *OCRResult {
 			{"role": "system", "content": ocrPrompt()},
 			{"role": "user", "content": content},
 		},
-		"temperature":    0.1,
-		"max_tokens":     256,
+		"temperature":     0.1,
+		"max_tokens":      256,
 		"response_format": map[string]string{"type": "json_object"},
 	}
 
@@ -59,7 +62,7 @@ func analyzeOpenRouter(b64Images []string, apiKey, model string) *OCRResult {
 	req.Header.Set("HTTP-Referer", "https://pims.local")
 	req.Header.Set("X-Title", "PIMS Stock Take")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return &OCRResult{Error: err.Error()}
 	}
@@ -71,7 +74,7 @@ func analyzeOpenRouter(b64Images []string, apiKey, model string) *OCRResult {
 }
 
 func analyzeGemini(b64Images []string, apiKey string) *OCRResult {
-	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=%s", apiKey)
+	url := "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent"
 
 	var parts []map[string]any
 	parts = append(parts, map[string]any{"text": ocrPrompt()})
@@ -90,7 +93,10 @@ func analyzeGemini(b64Images []string, apiKey string) *OCRResult {
 		},
 	}
 	b, _ := json.Marshal(body)
-	resp, err := http.Post(url, "application/json", bytes.NewReader(b))
+	req, _ := http.NewRequest("POST", url, bytes.NewReader(b))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("x-goog-api-key", apiKey) // header, not ?key=, so it stays out of logs
+	resp, err := client.Do(req)
 	if err != nil {
 		return &OCRResult{Error: err.Error()}
 	}

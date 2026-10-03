@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -9,12 +10,15 @@ import (
 
 type rateLimiter struct {
 	mu       sync.Mutex
+	max      int
 	failures map[string][]time.Time
 }
 
-var loginLimiter = &rateLimiter{
-	failures: make(map[string][]time.Time),
-}
+// loginLimiter counts failed logins; demoLimiter counts every demo session start.
+var (
+	loginLimiter = &rateLimiter{max: 5, failures: make(map[string][]time.Time)}
+	demoLimiter  = &rateLimiter{max: 20, failures: make(map[string][]time.Time)}
+)
 
 func init() {
 	go func() {
@@ -56,7 +60,7 @@ func (rl *rateLimiter) allow(ip string) bool {
 		}
 	}
 	rl.failures[ip] = recent
-	return len(recent) < 5
+	return len(recent) < rl.max
 }
 
 func (rl *rateLimiter) record(ip string) {
@@ -76,12 +80,9 @@ func getClientIP(r *http.Request) string {
 		}
 		return strings.TrimSpace(xff)
 	}
-	// Strip port from RemoteAddr
-	ip := r.RemoteAddr
-	for i := len(ip) - 1; i >= 0; i-- {
-		if ip[i] == ':' {
-			return ip[:i]
-		}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
 	}
-	return ip
+	return host
 }

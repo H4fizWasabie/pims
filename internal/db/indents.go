@@ -48,12 +48,17 @@ func GetIndentMasterData(d, stockDB *sql.DB) ([]map[string]any, error) {
 	return items, nil
 }
 
-func SubmitIndent(d *sql.DB, requester string, items []IndentItem, indentID string) error {
+// SubmitIndent saves all lines under one new REQ-YYYYMMDD-NNN id and returns it.
+func SubmitIndent(d *sql.DB, requester string, items []IndentItem) (string, error) {
 	tx, err := d.Begin()
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer tx.Rollback()
+	indentID, err := nextNumber(tx, "REQ")
+	if err != nil {
+		return "", err
+	}
 	now := time.Now()
 	for _, item := range items {
 		_, err := tx.Exec(
@@ -61,18 +66,14 @@ func SubmitIndent(d *sql.DB, requester string, items []IndentItem, indentID stri
 			 VALUES ($1, $2, $3, 'Pending', $4, $5, $6, $7)`,
 			indentID, now, requester, item.ItemName, item.StockID, item.UOM, item.Qty)
 		if err != nil {
-			return err
+			return "", err
 		}
 	}
-	return tx.Commit()
+	return indentID, tx.Commit()
 }
 
-func NextIndentID() string {
-	now := time.Now()
-	return fmt.Sprintf("REQ-%s-%s", now.Format("0201"), now.Format("1504"))
-}
-
-func ApproveIndent(d, stockDB *sql.DB, indentRowID int, reqQty float64, approverEmail string) error {
+// ApproveIndent checks stock against the quantity stored on the row, never a client-supplied one.
+func ApproveIndent(d, stockDB *sql.DB, indentRowID int, approverEmail string) error {
 	tx, err := d.Begin()
 	if err != nil {
 		return err
@@ -80,7 +81,8 @@ func ApproveIndent(d, stockDB *sql.DB, indentRowID int, reqQty float64, approver
 	defer tx.Rollback()
 
 	var status, rowStockID string
-	err = tx.QueryRow(`SELECT status, stock_id FROM indents WHERE id = $1 FOR UPDATE`, indentRowID).Scan(&status, &rowStockID)
+	var reqQty float64
+	err = tx.QueryRow(`SELECT status, stock_id, requested_qty FROM indents WHERE id = $1 FOR UPDATE`, indentRowID).Scan(&status, &rowStockID, &reqQty)
 	if err != nil {
 		return fmt.Errorf("indent not found")
 	}

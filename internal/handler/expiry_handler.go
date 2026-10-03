@@ -18,12 +18,19 @@ func (h *Handler) HandleExpiryList(w http.ResponseWriter, r *http.Request) {
 		page = 1
 	}
 	dbConn, _ := h.databases(r.Context())
-	items, err := db.GetExpiryList(dbConn, page-1, pageSize)
+	if pageSize > 200 {
+		pageSize = 200
+	}
+	items, total, err := db.GetExpiryList(dbConn, page-1, pageSize)
 	if err != nil {
-		h.Error(w, 500, "Server Error: "+err.Error())
+		h.ServerError(w, r, err)
 		return
 	}
-	h.JSON(w, 200, map[string]any{"items": items, "currentPage": page})
+	totalPages := max(1, (total+pageSize-1)/pageSize)
+	h.JSON(w, 200, map[string]any{
+		"items": items, "currentPage": page, "totalPages": totalPages, "totalItems": total,
+		"hasPrev": page > 1, "hasNext": page < totalPages,
+	})
 }
 
 type updateRemarkReq struct {
@@ -37,8 +44,12 @@ func (h *Handler) HandleExpiryUpdateRemark(w http.ResponseWriter, r *http.Reques
 		h.Error(w, 400, "Invalid request")
 		return
 	}
+	if len(req.Remark) > 500 {
+		h.Error(w, 400, "Remark too long (max 500 characters)")
+		return
+	}
 	if err := db.UpdateExpiryRemark(h.DB, req.RowIndex, req.Remark); err != nil {
-		h.Error(w, 500, "Server Error: "+err.Error())
+		h.ServerError(w, r, err)
 		return
 	}
 	h.Success(w, "Remark updated")

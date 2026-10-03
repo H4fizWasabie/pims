@@ -15,8 +15,8 @@ import (
 )
 
 type Handler struct {
-	DB       *sql.DB
-	StockDB  *sql.DB
+	DB      *sql.DB
+	StockDB *sql.DB
 	// DemoDB, when set, is the only database demo sessions may read from.
 	// It points at the fabricated-data demo schema. nil keeps the legacy
 	// behaviour (demo sessions read the real DB) for local/test setups.
@@ -52,6 +52,35 @@ func (h *Handler) Success(w http.ResponseWriter, msg string) {
 	h.JSON(w, 200, map[string]any{"success": true, "message": msg})
 }
 
+// ServerError logs the real error (and records it in system_logs) and sends
+// the client a generic message, so SQL/driver text never leaks.
+func (h *Handler) ServerError(w http.ResponseWriter, r *http.Request, err error) {
+	email := ""
+	if u := userFromContext(r.Context()); u != nil {
+		email = u.Email
+	}
+	log.Printf("ERROR %s %s: %v", r.Method, r.URL.Path, err)
+	db.LogError(h.DB, r.Method+" "+r.URL.Path, err, email)
+	h.Error(w, 500, "Server error. Please try again.")
+}
+
+const (
+	maxBody    = 1 << 20
+	maxBigBody = 25 << 20
+)
+
+// bigBody paths carry spreadsheets or base64 photos.
+var bigBody = map[string]bool{"/api/master/replace": true, "/api/stocktake/analyze-image": true}
+
+// decode reads a JSON body into v; false means a 400 was already sent.
+func (h *Handler) decode(w http.ResponseWriter, r *http.Request, v any) bool {
+	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
+		h.Error(w, 400, "Invalid request")
+		return false
+	}
+	return true
+}
+
 func Recover(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
@@ -82,6 +111,18 @@ func (h *Handler) AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		auth.SetSessionCookie(w, token)
+		limit := int64(maxBody)
+		if bigBody[r.URL.Path] {
+			limit = maxBigBody
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, limit)
+		// CSRF: a cross-site form cannot send a JSON content type without a
+		// CORS preflight, so requiring it on writes blocks forged requests.
+		if r.Method != http.MethodGet && r.Method != http.MethodHead &&
+			!strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
+			h.Error(w, 415, "Content-Type must be application/json")
+			return
+		}
 		// All write routes are POST; demo sessions may only read.
 		if user.IsDemo && r.Method != http.MethodGet {
 			h.Error(w, 403, "Demo mode: read-only browsing")
@@ -128,30 +169,4 @@ func getSessionToken(r *http.Request) (string, bool) {
 	return "", false
 }
 
-func containsFold(list []string, s string) bool {
-	for _, v := range list {
-		if equalsFold(v, s) {
-			return true
-		}
-	}
-	return false
-}
-
-func equalsFold(a, b string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := 0; i < len(a); i++ {
-		ca, cb := a[i], b[i]
-		if ca >= 'A' && ca <= 'Z' {
-			ca += 32
-		}
-		if cb >= 'A' && cb <= 'Z' {
-			cb += 32
-		}
-		if ca != cb {
-			return false
-		}
-	}
-	return true
-}
+func containsFold(list []string, s string) bool { return auth.Contains(list, s) }

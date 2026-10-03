@@ -3,7 +3,6 @@ package db
 import (
 	"database/sql"
 	"fmt"
-	"time"
 )
 
 type SpecRequest struct {
@@ -17,8 +16,11 @@ type SpecRequest struct {
 }
 
 func SubmitSpecRequest(d *sql.DB, req *SpecRequest, requesterEmail string) (string, error) {
-	reqID := fmt.Sprintf("SPEC-%s", time.Now().Format("020106-150405"))
-	_, err := d.Exec(
+	reqID, err := nextNumber(d, "SPEC")
+	if err != nil {
+		return "", err
+	}
+	_, err = d.Exec(
 		`INSERT INTO new_item_requests (req_id, requester, item_name, item_group, uom, cost, justification, status)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, 'Pending Review')`,
 		reqID, requesterEmail, req.ItemName, req.ItemGroup, req.UOM, req.Cost, req.Justification,
@@ -48,10 +50,10 @@ func ApproveSpecRequest(d *sql.DB, rowID int) (string, error) {
 
 	newStockID := fmt.Sprintf("NEW-%d", 1000+rowID)
 
+	// No ON CONFLICT: a clash must fail the approval, not report a master item that was never added.
 	_, err = tx.Exec(
 		`INSERT INTO master_items (stock_id, item_name, uom, item_group, cost, last_supplier, product_status)
-		 VALUES ($1, $2, $3, $4, $5, 'Pending Vendor', 'Available')
-		 ON CONFLICT (stock_id) DO NOTHING`,
+		 VALUES ($1, $2, $3, $4, $5, 'Pending Vendor', 'Available')`,
 		newStockID, itemName, uom, itemGroup, cost,
 	)
 	if err != nil {

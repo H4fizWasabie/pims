@@ -2,6 +2,9 @@ package db
 
 import (
 	"database/sql"
+	"errors"
+	"slices"
+	"strings"
 	"time"
 )
 
@@ -36,6 +39,7 @@ func RunStockAnalysis(d, stockDB *sql.DB) (*AnalysisResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var id, loc string
 		var qty float64
@@ -50,6 +54,9 @@ func RunStockAnalysis(d, stockDB *sql.DB) (*AnalysisResult, error) {
 		}
 		takeMap[id].qty += qty
 		takeMap[id].locations[loc] = true
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	rows.Close()
 
@@ -66,7 +73,12 @@ func RunStockAnalysis(d, stockDB *sql.DB) (*AnalysisResult, error) {
 		item := AnalysisItem{StockID: stockID, PhysicalQty: take.qty}
 
 		item.SystemQty = stocks[stockID]
-		d.QueryRow(`SELECT item_name, uom, cost FROM master_items WHERE stock_id = $1`, stockID).Scan(&item.ItemName, &item.UOM, &item.Cost)
+		err := d.QueryRow(`SELECT item_name, uom, cost FROM master_items WHERE stock_id = $1`, stockID).Scan(&item.ItemName, &item.UOM, &item.Cost)
+		if errors.Is(err, sql.ErrNoRows) {
+			item.ItemName = "(not in item master)"
+		} else if err != nil {
+			return nil, err
+		}
 
 		locs := ""
 		for l := range take.locations {
@@ -92,5 +104,6 @@ func RunStockAnalysis(d, stockDB *sql.DB) (*AnalysisResult, error) {
 		}
 		result.Items = append(result.Items, item)
 	}
+	slices.SortFunc(result.Items, func(a, b AnalysisItem) int { return strings.Compare(a.StockID, b.StockID) })
 	return result, nil
 }

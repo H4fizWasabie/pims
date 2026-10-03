@@ -423,12 +423,12 @@
       document.getElementById('dash_emptyMsg').style.display = 'none';
       data.pendingIndents.forEach(item => {
         tbody.innerHTML += `<tr>
-          <td>${item.date}</td><td><span class="badge-dept">${item.requester}</span></td>
-          <td><div style="font-weight:600;">${item.itemName}</div><div style="font-size:0.75rem; color:#64748b;">${item.stockId}</div></td>
+          <td>${esc(item.date)}</td><td><span class="badge-dept">${esc(item.requester)}</span></td>
+          <td><div style="font-weight:600;">${esc(item.itemName)}</div><div style="font-size:0.75rem; color:#64748b;">${esc(item.stockId)}</div></td>
           <td style="font-weight:700;">${item.qty}</td>
           <td style="text-align:center;">
-            <button class="btn-action btn-approve" onclick="decide('approve', '${item.stockId}', ${item.qty}, ${item.rowParams}, this)"><i class="fa-solid fa-check"></i></button>
-            <button class="btn-action btn-reject" onclick="decide('reject', '${item.stockId}', ${item.qty}, ${item.rowParams}, this)"><i class="fa-solid fa-xmark"></i></button>
+            <button class="btn-action btn-approve" onclick="decide('approve', ${item.rowParams}, this)"><i class="fa-solid fa-check"></i></button>
+            <button class="btn-action btn-reject" onclick="decide('reject', ${item.rowParams}, this)"><i class="fa-solid fa-xmark"></i></button>
           </td>
         </tr>`;
       });
@@ -442,8 +442,8 @@
       document.getElementById('dash_emptySpecMsg').style.display = 'none';
       data.pendingSpecs.forEach(item => {
         specBody.innerHTML += `<tr>
-          <td style="font-family:monospace;">${item.reqId}</td><td>${item.requester}</td>
-          <td><div style="font-weight:600;">${item.itemName}</div><div style="font-size:0.75rem; color:#64748b;">${item.justification}</div></td>
+          <td style="font-family:monospace;">${esc(item.reqId)}</td><td>${esc(item.requester)}</td>
+          <td><div style="font-weight:600;">${esc(item.itemName)}</div><div style="font-size:0.75rem; color:#64748b;">${esc(item.justification)}</div></td>
           <td>RM ${item.cost}</td>
           <td style="text-align:center;">
             <button class="btn-action btn-approve" onclick="decideSpec('approve', ${item.rowIndex}, this)"><i class="fa-solid fa-check"></i></button>
@@ -458,7 +458,7 @@
 
 
   // --- ACTIONS ---
-  function decide(action, stockId, qty, rowIdx, btn) {
+  function decide(action, rowIdx, btn) {
     if(!confirm(`Confirm ${action.toUpperCase()}?`)) return;
     
     // UI Lock
@@ -468,7 +468,7 @@
     buttons.forEach(b => b.disabled = true);
 
     const path = action === 'approve' ? '/api/indent/approve' : '/api/indent/reject';
-    api("POST", path, {stockId: stockId, reqQty: qty, indentRowIndex: rowIdx}).then(res => {
+    api("POST", path, {indentRowIndex: rowIdx}).then(res => {
       if(res.success) { 
         row.style.transition = "opacity 0.5s";
         row.style.opacity = "0";
@@ -770,15 +770,15 @@
       masterSearchItems(query).then(matches => {
         if (lab_searchInput.value.toLowerCase().trim() !== query) return;
         matches = matches.slice(0, 10);
-        if(matches.length === 0) { lab_resultsBox.innerHTML = `<div onclick="lab_addCustom('${query.replace(/'/g, "\\'")}')" style="padding:12px; cursor:pointer; color:#7c3aed; font-weight:600; border-bottom:1px solid #eee;"><i class="fa-solid fa-plus"></i> Add "${query.replace(/"/g, '&quot;')}" as custom item</div>`; return; }
+        if(matches.length === 0) { lab_resultsBox.innerHTML = `<div data-q="${esc(query)}" onclick="lab_addCustom(this.dataset.q)" style="padding:12px; cursor:pointer; color:#7c3aed; font-weight:600; border-bottom:1px solid #eee;"><i class="fa-solid fa-plus"></i> Add "${esc(query)}" as custom item</div>`; return; }
 
         lab_resultsBox.innerHTML = '';
         matches.forEach(item => {
           const div = document.createElement('div'); div.className = 'lab-suggestion-item';
           const stockStyle = item.currentStock > 0 ? 'color:#059669;' : 'color:#dc2626; font-weight:bold;';
-          div.innerHTML = `<div style="font-weight:600;">${item.itemName}</div>
+          div.innerHTML = `<div style="font-weight:600;">${esc(item.itemName)}</div>
             <div style="font-size:0.8rem; display:flex; justify-content:space-between; margin-top:2px;">
-              <span>ID: ${item.stockId}</span><span style="${stockStyle}">Stock: ${item.currentStock} ${item.uom}</span>
+              <span>ID: ${esc(item.stockId)}</span><span style="${stockStyle}">Stock: ${item.currentStock} ${esc(item.uom)}</span>
             </div>`;
           div.onclick = () => lab_selectItem(item);
           lab_resultsBox.appendChild(div);
@@ -859,8 +859,8 @@
       grandTotal += item.total;
       const row = `
         <tr>
-          <td style="font-weight:500;">${item.itemName}</td>
-          <td>${item.uom}</td>
+          <td style="font-weight:500;">${esc(item.itemName)}</td>
+          <td>${esc(item.uom)}</td>
           <td>${item.cost.toFixed(2)}</td>
           <td style="font-weight:bold; color:#2c3e50;">${item.qty}</td>
           <td>${item.total.toFixed(2)}</td>
@@ -1083,15 +1083,15 @@
       masterSearchItems(query).then(matches => {
         if (pharm_searchInput.value.toLowerCase().trim() !== query) return;
         matches = matches.slice(0, 10);
-        if(matches.length === 0) { pharm_resultsBox.innerHTML = `<div onclick="pharm_addCustom('${query.replace(/'/g, "\\'")}')" style="padding:12px; cursor:pointer; color:#7c3aed; font-weight:600; border-bottom:1px solid #eee;"><i class="fa-solid fa-plus"></i> Add "${query.replace(/"/g, '&quot;')}" as custom item</div>`; return; }
+        if(matches.length === 0) { pharm_resultsBox.innerHTML = `<div data-q="${esc(query)}" onclick="pharm_addCustom(this.dataset.q)" style="padding:12px; cursor:pointer; color:#7c3aed; font-weight:600; border-bottom:1px solid #eee;"><i class="fa-solid fa-plus"></i> Add "${esc(query)}" as custom item</div>`; return; }
 
         pharm_resultsBox.innerHTML = '';
         matches.forEach(item => {
           const div = document.createElement('div'); div.className = 'pharm-suggestion-item';
           const stockStyle = item.currentStock > 0 ? 'color:#059669;' : 'color:#dc2626; font-weight:bold;';
-          div.innerHTML = `<div style="font-weight:600;">${item.itemName}</div>
+          div.innerHTML = `<div style="font-weight:600;">${esc(item.itemName)}</div>
             <div style="font-size:0.8rem; display:flex; justify-content:space-between; margin-top:2px;">
-              <span>ID: ${item.stockId}</span><span style="${stockStyle}">Stock: ${item.currentStock} ${item.uom}</span>
+              <span>ID: ${esc(item.stockId)}</span><span style="${stockStyle}">Stock: ${item.currentStock} ${esc(item.uom)}</span>
             </div>`;
           div.onclick = () => pharm_selectItem(item);
           pharm_resultsBox.appendChild(div);
@@ -1170,8 +1170,8 @@
       grandTotal += item.total;
       const row = `
         <tr>
-          <td style="font-weight:500;">${item.itemName}</td>
-          <td>${item.uom}</td>
+          <td style="font-weight:500;">${esc(item.itemName)}</td>
+          <td>${esc(item.uom)}</td>
           <td>${item.cost.toFixed(2)}</td>
           <td style="font-weight:bold; color:#008080;">${item.qty}</td>
           <td>${item.total.toFixed(2)}</td>
@@ -1297,12 +1297,12 @@
       masterSearchItems(query).then(matches => {
         if (med_searchInput.value.toLowerCase().trim() !== query) return;
         matches = matches.slice(0, 10);
-        if(matches.length === 0) { med_resultsBox.innerHTML = `<div onclick="med_addCustom('${query.replace(/'/g, "\\'")}')" style="padding:12px; cursor:pointer; color:#7c3aed; font-weight:600; border-bottom:1px solid #eee;"><i class="fa-solid fa-plus"></i> Add "${query.replace(/"/g, '&quot;')}" as custom item</div>`; return; }
+        if(matches.length === 0) { med_resultsBox.innerHTML = `<div data-q="${esc(query)}" onclick="med_addCustom(this.dataset.q)" style="padding:12px; cursor:pointer; color:#7c3aed; font-weight:600; border-bottom:1px solid #eee;"><i class="fa-solid fa-plus"></i> Add "${esc(query)}" as custom item</div>`; return; }
         med_resultsBox.innerHTML = '';
         matches.forEach(item => {
           const div = document.createElement('div'); div.className = 'med-suggestion-item';
           const stockStyle = item.currentStock > 0 ? 'color:#059669;' : 'color:#dc2626; font-weight:bold;';
-          div.innerHTML = `<div style="font-weight:600;">${item.itemName}</div><div style="font-size:0.8rem;display:flex;justify-content:space-between;margin-top:2px;"><span>ID: ${item.stockId}</span><span style="${stockStyle}">Stock: ${item.currentStock} ${item.uom}</span></div>`;
+          div.innerHTML = `<div style="font-weight:600;">${esc(item.itemName)}</div><div style="font-size:0.8rem;display:flex;justify-content:space-between;margin-top:2px;"><span>ID: ${esc(item.stockId)}</span><span style="${stockStyle}">Stock: ${item.currentStock} ${esc(item.uom)}</span></div>`;
           div.onclick = () => med_selectItem(item);
           med_resultsBox.appendChild(div);
         });
@@ -1347,7 +1347,7 @@
     else { document.getElementById('med_emptyState').style.display = 'block'; document.getElementById('med_btnSubmit').style.display = 'none'; }
     med_cart.forEach((item, idx) => {
       grandTotal += item.total;
-      tbody.innerHTML += `<tr><td style="font-weight:500;">${item.itemName}</td><td>${item.uom}</td><td>${item.cost.toFixed(2)}</td><td style="font-weight:bold;color:#7c3aed;">${item.qty}</td><td>${item.total.toFixed(2)}</td><td style="text-align:center;"><button class="med-btn-icon" onclick="med_removeItem(${idx})"><i class="fa-solid fa-trash"></i></button></td></tr>`;
+      tbody.innerHTML += `<tr><td style="font-weight:500;">${esc(item.itemName)}</td><td>${esc(item.uom)}</td><td>${item.cost.toFixed(2)}</td><td style="font-weight:bold;color:#7c3aed;">${item.qty}</td><td>${item.total.toFixed(2)}</td><td style="text-align:center;"><button class="med-btn-icon" onclick="med_removeItem(${idx})"><i class="fa-solid fa-trash"></i></button></td></tr>`;
     });
     document.getElementById('med_grandTotalDisplay').innerText = "RM " + grandTotal.toFixed(2);
   }
@@ -1458,12 +1458,12 @@
       masterSearchItems(query).then(matches => {
         if (surg_searchInput.value.toLowerCase().trim() !== query) return;
         matches = matches.slice(0, 10);
-        if(matches.length === 0) { surg_resultsBox.innerHTML = `<div onclick="surg_addCustom('${query.replace(/'/g, "\\'")}')" style="padding:12px; cursor:pointer; color:#7c3aed; font-weight:600; border-bottom:1px solid #eee;"><i class="fa-solid fa-plus"></i> Add "${query.replace(/"/g, '&quot;')}" as custom item</div>`; return; }
+        if(matches.length === 0) { surg_resultsBox.innerHTML = `<div data-q="${esc(query)}" onclick="surg_addCustom(this.dataset.q)" style="padding:12px; cursor:pointer; color:#7c3aed; font-weight:600; border-bottom:1px solid #eee;"><i class="fa-solid fa-plus"></i> Add "${esc(query)}" as custom item</div>`; return; }
         surg_resultsBox.innerHTML = '';
         matches.forEach(item => {
           const div = document.createElement('div'); div.className = 'surg-suggestion-item';
           const stockStyle = item.currentStock > 0 ? 'color:#059669;' : 'color:#dc2626; font-weight:bold;';
-          div.innerHTML = `<div style="font-weight:600;">${item.itemName}</div><div style="font-size:0.8rem;display:flex;justify-content:space-between;margin-top:2px;"><span>ID: ${item.stockId}</span><span style="${stockStyle}">Stock: ${item.currentStock} ${item.uom}</span></div>`;
+          div.innerHTML = `<div style="font-weight:600;">${esc(item.itemName)}</div><div style="font-size:0.8rem;display:flex;justify-content:space-between;margin-top:2px;"><span>ID: ${esc(item.stockId)}</span><span style="${stockStyle}">Stock: ${item.currentStock} ${esc(item.uom)}</span></div>`;
           div.onclick = () => surg_selectItem(item);
           surg_resultsBox.appendChild(div);
         });
@@ -1508,7 +1508,7 @@
     else { document.getElementById('surg_emptyState').style.display = 'block'; document.getElementById('surg_btnSubmit').style.display = 'none'; }
     surg_cart.forEach((item, idx) => {
       grandTotal += item.total;
-      tbody.innerHTML += `<tr><td style="font-weight:500;">${item.itemName}</td><td>${item.uom}</td><td>${item.cost.toFixed(2)}</td><td style="font-weight:bold;color:#dc2626;">${item.qty}</td><td>${item.total.toFixed(2)}</td><td style="text-align:center;"><button class="surg-btn-icon" onclick="surg_removeItem(${idx})"><i class="fa-solid fa-trash"></i></button></td></tr>`;
+      tbody.innerHTML += `<tr><td style="font-weight:500;">${esc(item.itemName)}</td><td>${esc(item.uom)}</td><td>${item.cost.toFixed(2)}</td><td style="font-weight:bold;color:#dc2626;">${item.qty}</td><td>${item.total.toFixed(2)}</td><td style="text-align:center;"><button class="surg-btn-icon" onclick="surg_removeItem(${idx})"><i class="fa-solid fa-trash"></i></button></td></tr>`;
     });
     document.getElementById('surg_grandTotalDisplay').innerText = "RM " + grandTotal.toFixed(2);
   }
@@ -1682,8 +1682,8 @@
     const matches = INDENT_MASTER_DATA.filter(item => item.itemName.toLowerCase().includes(query) || item.stockId.toLowerCase().includes(query)).slice(0, 10);
 
     if (matches.length === 0) {
-      indent_resultsBox.innerHTML = `<div onclick="indent_addCustom('${query.replace(/'/g, "\\'")}')" style="padding:12px; cursor:pointer; color:#7c3aed; font-weight:600; border-bottom:1px solid #eee;">
-        <i class="fa-solid fa-plus"></i> Add "${query.replace(/"/g, '&quot;')}" as custom item
+      indent_resultsBox.innerHTML = `<div data-q="${esc(query)}" onclick="indent_addCustom(this.dataset.q)" style="padding:12px; cursor:pointer; color:#7c3aed; font-weight:600; border-bottom:1px solid #eee;">
+        <i class="fa-solid fa-plus"></i> Add "${esc(query)}" as custom item
       </div>`;
       return;
     }
@@ -1696,9 +1696,9 @@
       
       const stockStyle = item.currentStock > 0 ? 'color:#059669;' : 'color:#dc2626; font-weight:bold;';
       
-      div.innerHTML = `<div style="font-weight:600;">${item.itemName}</div>
+      div.innerHTML = `<div style="font-weight:600;">${esc(item.itemName)}</div>
         <div style="font-size:0.8rem; display:flex; justify-content:space-between; margin-top:2px;">
-          <span>ID: ${item.stockId}</span><span style="${stockStyle}">Stock: ${item.currentStock} ${item.uom}</span>
+          <span>ID: ${esc(item.stockId)}</span><span style="${stockStyle}">Stock: ${item.currentStock} ${esc(item.uom)}</span>
         </div>`;
       div.onclick = () => indent_selectItem(item);
       indent_resultsBox.appendChild(div);
@@ -1707,7 +1707,7 @@
     const customDiv = document.createElement('div');
     customDiv.style.padding = '10px'; customDiv.style.cursor = 'pointer'; customDiv.style.borderTop = '2px solid #e2e8f0';
     customDiv.style.color = '#7c3aed'; customDiv.style.fontWeight = '600'; customDiv.style.textAlign = 'center';
-    customDiv.innerHTML = `<i class="fa-solid fa-plus"></i> Not found? Add "${query.replace(/"/g, '&quot;')}" as custom item`;
+    customDiv.innerHTML = `<i class="fa-solid fa-plus"></i> Not found? Add "${esc(query)}" as custom item`;
     customDiv.onclick = () => indent_addCustom(query);
     indent_resultsBox.appendChild(customDiv);
   });
@@ -1770,8 +1770,8 @@
 
     indent_cart.forEach((item, idx) => {
       const row = `<tr>
-          <td style="font-family:monospace; color:#6b7280;">${item.stockId}</td><td style="font-weight:500;">${item.itemName}</td>
-          <td>${item.uom}</td><td>${item.currentStock}</td><td style="font-weight:bold; color:#008080;">${item.reqQty}</td>
+          <td style="font-family:monospace; color:#6b7280;">${esc(item.stockId)}</td><td style="font-weight:500;">${esc(item.itemName)}</td>
+          <td>${esc(item.uom)}</td><td>${item.currentStock}</td><td style="font-weight:bold; color:#008080;">${item.reqQty}</td>
           <td style="text-align:center;"><button onclick="indent_removeFromCart(${idx})" style="background:none; border:none; color:red; cursor:pointer;"><i class="fa-solid fa-trash"></i></button></td>
         </tr>`;
       tbody.innerHTML += row;
@@ -2131,7 +2131,7 @@
       div.style.padding='8px'; div.style.cursor='pointer'; div.style.borderBottom='1px solid #f0f0f0';
       div.onmouseover = () => div.style.backgroundColor='#f0fdf4';
       div.onmouseout = () => div.style.backgroundColor='white';
-      div.innerHTML = `<strong>${i.itemName}</strong> <small>(${i.uom})</small> <span style="float:right; color:#059669; font-weight:bold;">Stock: ${i.currentStock}</span>`;
+      div.innerHTML = `<strong>${esc(i.itemName)}</strong> <small>(${esc(i.uom)})</small> <span style="float:right; color:#059669; font-weight:bold;">Stock: ${i.currentStock}</span>`;
       div.onclick = () => {
         grn_searchInput.value = i.itemName;
         document.getElementById('grn_itemUom').value = i.uom;
@@ -2187,8 +2187,8 @@
       const statusClass = item.status === 'Match' ? 'grn-status-match' : 'grn-status-mismatch';
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>${item.itemName}</td><td>${item.uom}</td><td>${item.qtyPo}</td><td>${item.qtyDo}</td><td>${item.qtyInv}</td><td>${item.batch}</td>
-        <td><span class="${statusClass}">${item.status}</span></td>
+        <td>${esc(item.itemName)}</td><td>${esc(item.uom)}</td><td>${item.qtyPo}</td><td>${item.qtyDo}</td><td>${item.qtyInv}</td><td>${esc(item.batch)}</td>
+        <td><span class="${statusClass}">${esc(item.status)}</span></td>
       `;
       tbody.appendChild(tr);
     });
@@ -2354,9 +2354,9 @@
       const div = document.createElement('div');
       div.className = 'suggestion-item';
       div.innerHTML = `
-        <div><span style="color:#b91c1c; font-weight:bold; background:#fee2e2; padding:2px 6px; border-radius:4px; font-size:0.85rem; margin-right:8px;">${item.batch}</span> <span style="font-weight:600;">${item.itemName}</span></div>
+        <div><span style="color:#b91c1c; font-weight:bold; background:#fee2e2; padding:2px 6px; border-radius:4px; font-size:0.85rem; margin-right:8px;">${esc(item.batch)}</span> <span style="font-weight:600;">${esc(item.itemName)}</span></div>
         <div style="font-size:0.8rem; color:#666; margin-top:2px;">
-           Exp: ${item.expiry} | Cost: ${item.cost.toFixed(2)}
+           Exp: ${esc(item.expiry)} | Cost: ${item.cost.toFixed(2)}
         </div>
       `;
       div.onclick = () => disp_selectItem(item);
@@ -2530,7 +2530,7 @@
       const tbody = document.getElementById('analy_tableBody'); tbody.innerHTML = '';
       data.items.forEach(item => {
         let badgeClass = item.status === 'Surplus' ? 'analy-bg-green' : (item.status === 'Shortage' ? 'analy-bg-red' : 'analy-bg-gray');
-        tbody.innerHTML += `<tr><td style="font-family:monospace;">${item.stockId}</td><td>${item.name}</td><td>${item.sysQty}</td><td>${item.phyQty}</td><td style="font-weight:bold;">${item.diff}</td><td>RM ${parseFloat(item.val).toFixed(2)}</td><td><span class="analy-status-badge ${badgeClass}">${item.status}</span></td></tr>`;
+        tbody.innerHTML += `<tr><td style="font-family:monospace;">${esc(item.stockId)}</td><td>${esc(item.name)}</td><td>${item.sysQty}</td><td>${item.phyQty}</td><td style="font-weight:bold;">${item.diff}</td><td>RM ${parseFloat(item.val).toFixed(2)}</td><td><span class="analy-status-badge ${badgeClass}">${esc(item.status)}</span></td></tr>`;
       });
     }).catch(err => console.error(err));
   }
@@ -2790,11 +2790,11 @@
 
             div.innerHTML = `
         <div></div> 
-        <div class="exp-item-data"><div style="font-weight:600; color:#1f2937;" class="main-text">${item.itemName}</div><div style="font-size:0.8rem; color:#6b7280;">ID: ${item.stockId}</div></div>
-        <div class="exp-item-data"><div style="font-weight:600; color:#1f2937;">${item.batch}</div><div style="font-size:0.8rem; color:#6b7280;">Batch No</div></div>
-        <div class="exp-item-data"><div style="font-weight:600; color:#1f2937;">${item.expiry}</div><div class="exp-status-badge">${item.label}</div></div>
-        <div class="exp-item-data"><div style="font-weight:600; color:#1f2937;">${item.latestQty} <span style="font-size:0.8rem;">${item.uom}</span></div></div>
-        <div class="exp-item-data" style="font-style:italic; font-size:0.85rem;">${item.remarks || '-'}</div>
+        <div class="exp-item-data"><div style="font-weight:600; color:#1f2937;" class="main-text">${esc(item.itemName)}</div><div style="font-size:0.8rem; color:#6b7280;">ID: ${esc(item.stockId)}</div></div>
+        <div class="exp-item-data"><div style="font-weight:600; color:#1f2937;">${esc(item.batch)}</div><div style="font-size:0.8rem; color:#6b7280;">Batch No</div></div>
+        <div class="exp-item-data"><div style="font-weight:600; color:#1f2937;">${esc(item.expiry)}</div><div class="exp-status-badge">${esc(item.label)}</div></div>
+        <div class="exp-item-data"><div style="font-weight:600; color:#1f2937;">${item.latestQty} <span style="font-size:0.8rem;">${esc(item.uom)}</span></div></div>
+        <div class="exp-item-data" style="font-style:italic; font-size:0.85rem;">${esc(item.remarks || '-')}</div>
         <div class="exp-item-data">${actionHtml}</div>
       `;
             list.appendChild(div);
@@ -2849,7 +2849,7 @@ function usr_load() {
     var tb = document.getElementById('usr_tbody');
     if(!users.length) { tb.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:20px;">No users</td></tr>'; return; }
     tb.innerHTML = users.map(function(u) {
-      return '<tr><td>'+u.email+'</td><td>'+u.role+'</td><td style="font-size:0.8rem;color:#64748b;">'+u.createdAt+'</td><td style="text-align:center;"><button class="usr-btn usr-btn-del" onclick="usr_del('+u.id+',this)">Delete</button></td></tr>';
+      return '<tr><td>'+esc(u.email)+'</td><td>'+esc(u.role)+'</td><td style="font-size:0.8rem;color:#64748b;">'+esc(u.createdAt)+'</td><td style="text-align:center;"><button class="usr-btn usr-btn-del" onclick="usr_del('+u.id+',this)">Delete</button></td></tr>';
     }).join('');
   }).catch(function(e) { document.getElementById('usr_msg').innerText = 'Error: '+e.message; });
 }
@@ -3002,16 +3002,17 @@ function usr_del(id, btn) {
         }
 
         const mapped = [];
+        let skipped = 0; // rows without a SKU or product name
         for (let r = 1; r < rows.length; r++) {
           const row = rows[r];
-          if (!row || !row[idxSKU]) continue;
+          if (!row || !row[idxSKU] || !String(row[idxProduct] || '').trim()) { skipped++; continue; }
           const group = [row[idxType] || '', row[5] !== undefined ? row[5] : ''].filter(Boolean).join(' | ');
           mapped.push([
             String(row[idxSKU]).trim(),           // stock_id
             String(row[idxProduct] || '').trim(),  // item_name
             String(idxUOM >= 0 ? row[idxUOM] : '').trim(),        // uom
             group || 'General',                    // item_group
-            String(idxCost >= 0 ? row[idxCost] : '0'),            // cost
+            String(idxCost >= 0 ? row[idxCost] : '0').replace(/[^0-9.\-]/g, ''), // cost (strips RM, commas)
             String(idxSupplier >= 0 ? row[idxSupplier] : '').trim(), // last_supplier
             String(idxStatus >= 0 ? row[idxStatus] : 'Available').trim(), // product_status
             String(idxStock >= 0 ? row[idxStock] : '0').trim()     // retained for compatibility; Procura owns stock
@@ -3026,14 +3027,14 @@ function usr_del(id, btn) {
 
         import_parsedData = mapped;
         import_status.className = 'imp-status success';
-        import_status.innerHTML = '<i class="fa-solid fa-check"></i> Parsed <b>' + mapped.length + '</b> items. Ready to upload.';
+        import_status.innerHTML = '<i class="fa-solid fa-check"></i> Parsed <b>' + mapped.length + '</b> items' + (skipped ? ' (' + skipped + ' rows without SKU/name skipped)' : '') + '. Ready to upload.';
         import_uploadBtn.disabled = false;
 
         // Show preview (first 5 rows)
         const preview = mapped.slice(0, 5);
         let html = '<table><thead><tr><th>Stock ID</th><th>Item Name</th><th>UOM</th><th>Group</th><th>Cost</th><th>Supplier</th><th>Status</th><th>Stock</th></tr></thead><tbody>';
         preview.forEach(r => {
-          html += '<tr>' + r.map(c => '<td>' + c + '</td>').join('') + '</tr>';
+          html += '<tr>' + r.map(c => '<td>' + esc(c) + '</td>').join('') + '</tr>';
         });
         if (mapped.length > 5) html += '<tr><td colspan="8" style="text-align:center;color:#94a3b8;">... and ' + (mapped.length - 5) + ' more rows</td></tr>';
         html += '</tbody></table>';
@@ -3142,7 +3143,7 @@ function renderScanHistory() {
   var rows = q ? SH_ROWS.filter(function(r){ return (r.itemName||'').toLowerCase().indexOf(q) !== -1; }) : SH_ROWS;
   var tb = document.getElementById('sh_tbody');
   if(!rows.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:30px;">No scans found</td></tr>'; document.getElementById('sh_summary').style.display = 'none'; return;}
-  tb.innerHTML = rows.map(function(r){return '<tr><td style="font-weight:500;">'+r.itemName+'</td><td>'+(r.expiryDate||'-')+'</td><td>'+r.qty+'</td><td>'+r.location+'</td><td style="font-size:0.8rem;color:#64748b;">'+r.scannedAt+'</td></tr>';}).join('');
+  tb.innerHTML = rows.map(function(r){return '<tr><td style="font-weight:500;">'+esc(r.itemName)+'</td><td>'+esc((r.expiryDate||'-'))+'</td><td>'+r.qty+'</td><td>'+esc(r.location)+'</td><td style="font-size:0.8rem;color:#64748b;">'+esc(r.scannedAt)+'</td></tr>';}).join('');
   document.getElementById('sh_summary').style.display = 'block';
   document.getElementById('sh_summary').innerText = rows.length + ' items scanned' + (q ? ' (filtered from '+SH_ROWS.length+')' : '');
 }
@@ -3213,10 +3214,10 @@ function renderOrderList() {
   var tbody = document.getElementById('ol_tbody');
   if(!rows.length) { tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:30px;">No orders found</td></tr>'; return; }
   tbody.innerHTML = rows.map(function(r) {
-    var ot = r.orderTickAt ? '<span class="ol-tick ol-tick-on" onclick="olTick('+r.id+',\'order\',this)"><i class="fa-solid fa-check"></i> '+r.orderTickAt+'</span>' : '<span class="ol-tick ol-tick-off" onclick="olTick('+r.id+',\'order\',this)"><i class="fa-regular fa-clock"></i> Tick</span>';
-    var pt = r.paymentTickAt ? '<span class="ol-tick ol-tick-on" onclick="olTick('+r.id+',\'payment\',this)"><i class="fa-solid fa-check"></i> '+r.paymentTickAt+'</span>' : '<span class="ol-tick ol-tick-off" onclick="olTick('+r.id+',\'payment\',this)"><i class="fa-regular fa-clock"></i> Tick</span>';
-    var rt = r.receivedTickAt ? '<span class="ol-tick ol-tick-on" onclick="olTick('+r.id+',\'received\',this)"><i class="fa-solid fa-check"></i> '+r.receivedTickAt+'</span>' : '<span class="ol-tick ol-tick-off" onclick="olTick('+r.id+',\'received\',this)"><i class="fa-regular fa-clock"></i> Tick</span>';
-    return '<tr><td style="font-family:monospace;font-weight:600;">'+r.prfNo+'</td><td><span class="badge-dept">'+r.department+'</span></td><td style="font-weight:500;">'+r.itemName+'</td><td>'+r.qty+'</td><td>'+r.uom+'</td><td>RM '+(r.totalCost||0).toFixed(2)+'</td><td style="font-size:0.8rem;color:#64748b;">'+r.orderedAt+'</td><td style="text-align:center;">'+ot+'</td><td style="text-align:center;">'+pt+'</td><td style="text-align:center;">'+rt+'</td></tr>';
+    var ot = r.orderTickAt ? '<span class="ol-tick ol-tick-on" onclick="olTick('+r.id+',\'order\',this)"><i class="fa-solid fa-check"></i> '+esc(r.orderTickAt)+'</span>' : '<span class="ol-tick ol-tick-off" onclick="olTick('+r.id+',\'order\',this)"><i class="fa-regular fa-clock"></i> Tick</span>';
+    var pt = r.paymentTickAt ? '<span class="ol-tick ol-tick-on" onclick="olTick('+r.id+',\'payment\',this)"><i class="fa-solid fa-check"></i> '+esc(r.paymentTickAt)+'</span>' : '<span class="ol-tick ol-tick-off" onclick="olTick('+r.id+',\'payment\',this)"><i class="fa-regular fa-clock"></i> Tick</span>';
+    var rt = r.receivedTickAt ? '<span class="ol-tick ol-tick-on" onclick="olTick('+r.id+',\'received\',this)"><i class="fa-solid fa-check"></i> '+esc(r.receivedTickAt)+'</span>' : '<span class="ol-tick ol-tick-off" onclick="olTick('+r.id+',\'received\',this)"><i class="fa-regular fa-clock"></i> Tick</span>';
+    return '<tr><td style="font-family:monospace;font-weight:600;">'+esc(r.prfNo)+'</td><td><span class="badge-dept">'+esc(r.department)+'</span></td><td style="font-weight:500;">'+esc(r.itemName)+'</td><td>'+r.qty+'</td><td>'+esc(r.uom)+'</td><td>RM '+(r.totalCost||0).toFixed(2)+'</td><td style="font-size:0.8rem;color:#64748b;">'+esc(r.orderedAt)+'</td><td style="text-align:center;">'+ot+'</td><td style="text-align:center;">'+pt+'</td><td style="text-align:center;">'+rt+'</td></tr>';
   }).join('');
 }
 
@@ -3253,6 +3254,13 @@ function olTick(id, field, el) {
 
 <script>
 // API helper
+// HTML-escape server/user text before it goes into innerHTML.
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) {
+    return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
+  });
+}
+
 function api(method, path, body) {
   var opts = { method: method, headers: { 'Content-Type': 'application/json' } };
   if (body) opts.body = JSON.stringify(body);

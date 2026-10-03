@@ -51,14 +51,16 @@ Create a PostgreSQL database, then configure the connection and Procura database
 ```bash
 export DATABASE_URL='postgres://pims:pims@localhost:5432/pims?sslmode=disable'
 export PROCURA_DB_PATH='/path/to/procura.sqlite'
-export SESSION_SECRET='replace-with-a-long-random-secret'
+export ADMIN_EMAIL='you@example.com'        # creates the first admin if missing
+export ADMIN_PASSWORD='at-least-8-characters'
+export MASTER_ADMINS='you@example.com'       # who may use admin screens
 
 go run .
 ```
 
 PIMS applies its PostgreSQL migrations automatically at startup and listens on `http://localhost:8083` by default. The default port can be changed with `PORT`.
 
-For local development, the migration seeds `admin@pims.local` with the password `admin123`. Change or remove this account before using a deployment outside development.
+No default account is created. Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` for the first start (ignored if that user already exists), then add the email to `MASTER_ADMINS`. Older installs may still have the previously seeded `admin@pims.local` / `admin123`; PIMS logs a warning at startup while it exists, so change its password or delete it.
 
 ### Optional OCR configuration
 
@@ -97,7 +99,7 @@ The [`deploy/`](deploy) directory contains examples for:
 
 - Environment configuration
 - A systemd service for the single PIMS binary
-- Caddy reverse proxy routing under `/pims`
+- A Caddy site block that reverse-proxies to PIMS (TLS terminates at Caddy; session cookies are `Secure`)
 
 Build the application with:
 
@@ -105,17 +107,17 @@ Build the application with:
 go build -o pims .
 ```
 
-Keep production secrets outside the repository and replace the development session secret and seeded admin credentials before exposing the service.
+Keep production secrets outside the repository. Passwords are 8-72 characters and sessions expire after 10 idle minutes.
 
 ## Project layout
 
 ```text
 .
-├── main.go              # Server startup and route registration
+├── main.go              # Server startup and graceful shutdown
 ├── internal/auth        # Sessions and role checks
 ├── internal/config      # Environment configuration
 ├── internal/db          # PostgreSQL and Procura data access
-├── internal/handler     # HTTP handlers and middleware
+├── internal/handler     # HTTP handlers, middleware, route table (routes.go)
 ├── internal/ocr         # Optional stock-take OCR providers
 ├── static/index.html    # Embedded single-page frontend
 └── deploy/              # Deployment templates

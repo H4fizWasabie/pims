@@ -24,7 +24,7 @@ func (h *Handler) HandleSpecSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	reqID, err := db.SubmitSpecRequest(h.DB, &req, email)
 	if err != nil {
-		h.Error(w, 500, "Server Error: "+err.Error())
+		h.ServerError(w, r, err)
 		return
 	}
 	h.Success(w, "New item request submitted: "+reqID)

@@ -7,6 +7,10 @@ import (
 )
 
 func (h *Handler) HandleSPA(w http.ResponseWriter, r *http.Request) {
+	if strings.HasPrefix(r.URL.Path, "/api/") {
+		h.Error(w, 404, "Not found")
+		return
+	}
 	path := strings.TrimPrefix(r.URL.Path, "/")
 	if path == "" || path == "/" {
 		path = "index.html"

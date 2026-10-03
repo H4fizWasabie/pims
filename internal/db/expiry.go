@@ -20,37 +20,39 @@ type ExpiryItem struct {
 	DaysLeft  int     `json:"daysLeft"`
 }
 
-func GetExpiryList(d *sql.DB, page, pageSize int) ([]ExpiryItem, error) {
-	offset := page * pageSize
+// GetExpiryList pages through batches expiring within a year (earliest first)
+// and returns the total so callers can paginate. The window is filtered in
+// SQL so pages are never short.
+func GetExpiryList(d *sql.DB, page, pageSize int) ([]ExpiryItem, int, error) {
+	var total int
+	if err := d.QueryRow(`SELECT COUNT(*) FROM expiry_tracking WHERE expiry_date <= CURRENT_DATE + 365`).Scan(&total); err != nil {
+		return nil, 0, err
+	}
 	rows, err := d.Query(
 		`SELECT e.id, e.stock_id, e.item_name, e.batch_no, e.expiry_date, e.uom, e.remarks,
-		        COALESCE((SELECT qty FROM expiry_monthly_qty WHERE expiry_tracking_id = e.id ORDER BY month_key DESC LIMIT 1), 0)
+		        COALESCE((SELECT qty FROM expiry_monthly_qty WHERE expiry_tracking_id = e.id ORDER BY month_key DESC LIMIT 1), 0),
+		        (e.expiry_date - CURRENT_DATE)
 		 FROM expiry_tracking e
-		 ORDER BY e.expiry_date ASC LIMIT $1 OFFSET $2`,
-		pageSize, offset)
+		 WHERE e.expiry_date <= CURRENT_DATE + 365
+		 ORDER BY e.expiry_date ASC, e.id LIMIT $1 OFFSET $2`,
+		pageSize, page*pageSize)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
 	items := make([]ExpiryItem, 0)
-	today := time.Now()
 	for rows.Next() {
 		var it ExpiryItem
 		var expDate time.Time
-		if err := rows.Scan(&it.RowIndex, &it.StockID, &it.ItemName, &it.Batch, &expDate, &it.UOM, &it.Remarks, &it.LatestQty); err != nil {
-			return nil, err
+		if err := rows.Scan(&it.RowIndex, &it.StockID, &it.ItemName, &it.Batch, &expDate, &it.UOM, &it.Remarks, &it.LatestQty, &it.DaysLeft); err != nil {
+			return nil, 0, err
 		}
 		it.Expiry = expDate.Format("02/01/2006")
-		daysDiff := int(expDate.Sub(today).Hours() / 24)
-		it.DaysLeft = daysDiff
-		it.Level, it.Label = expiryLevel(daysDiff)
-		if it.Level == "" {
-			continue
-		}
+		it.Level, it.Label = expiryLevel(it.DaysLeft)
 		items = append(items, it)
 	}
-	return items, rows.Err()
+	return items, total, rows.Err()
 }
 
 func UpsertExpiryTracking(d *sql.DB, stockID, itemName, batch, expiryStr, uom string, qty float64) error {
@@ -61,7 +63,8 @@ func UpsertExpiryTracking(d *sql.DB, stockID, itemName, batch, expiryStr, uom st
 			return fmt.Errorf("invalid date: %s", expiryStr)
 		}
 	}
-	if time.Until(expDate).Hours() > 8760 {
+	// Batches expiring beyond a year are deliberately not tracked (the list only shows <= 365 days).
+	if time.Until(expDate).Hours() > 24*365 {
 		return nil
 	}
 
