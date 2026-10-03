@@ -84,10 +84,10 @@ func ApproveIndent(d, stockDB *sql.DB, indentRowID int, approverEmail string) er
 	var reqQty float64
 	err = tx.QueryRow(`SELECT status, stock_id, requested_qty FROM indents WHERE id = $1 FOR UPDATE`, indentRowID).Scan(&status, &rowStockID, &reqQty)
 	if err != nil {
-		return fmt.Errorf("indent not found")
+		return ValidationError("indent not found")
 	}
 	if status != "Pending" {
-		return fmt.Errorf("item was already processed")
+		return ValidationError("item was already processed")
 	}
 
 	stocks, err := currentStocks(d, stockDB, []string{rowStockID})
@@ -96,10 +96,10 @@ func ApproveIndent(d, stockDB *sql.DB, indentRowID int, approverEmail string) er
 	}
 	currentStock, ok := stocks[rowStockID]
 	if !ok {
-		return fmt.Errorf("stock ID %s not found in Procura", rowStockID)
+		return ValidationError(fmt.Sprintf("stock ID %s not found in Procura", rowStockID))
 	}
 	if currentStock < reqQty {
-		return fmt.Errorf("insufficient stock! Current: %.0f, Req: %.0f", currentStock, reqQty)
+		return ValidationError(fmt.Sprintf("insufficient stock! Current: %.0f, Req: %.0f", currentStock, reqQty))
 	}
 
 	_, err = tx.Exec(`UPDATE indents SET status = 'Approved', action_log = $1 WHERE id = $2`,
@@ -119,10 +119,10 @@ func RejectIndent(d *sql.DB, indentRowID int, approverEmail string) error {
 	var status string
 	err = tx.QueryRow(`SELECT status FROM indents WHERE id = $1 FOR UPDATE`, indentRowID).Scan(&status)
 	if err != nil {
-		return fmt.Errorf("indent not found")
+		return ValidationError("indent not found")
 	}
 	if status != "Pending" {
-		return fmt.Errorf("status is not Pending")
+		return ValidationError("status is not Pending")
 	}
 	_, err = tx.Exec(`UPDATE indents SET status = 'Rejected', action_log = $1 WHERE id = $2`,
 		"Rejected by: "+approverEmail, indentRowID)

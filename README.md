@@ -120,6 +120,8 @@ Keep production secrets outside the repository. Passwords are 8-72 characters an
 ├── internal/handler     # HTTP handlers, middleware, route table (routes.go)
 ├── internal/ocr         # Optional stock-take OCR providers
 ├── static/index.html    # Embedded single-page frontend
+├── static/vendor        # Self-hosted React, SheetJS, Font Awesome, fonts (see LICENSES.md)
+├── e2e/ux.py            # Browser regression check (Playwright; not in CI)
 └── deploy/              # Deployment templates
 ```
 

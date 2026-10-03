@@ -2,7 +2,10 @@ package db
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
+
+	"github.com/lib/pq"
 )
 
 type SpecRequest struct {
@@ -42,10 +45,10 @@ func ApproveSpecRequest(d *sql.DB, rowID int) (string, error) {
 		rowID,
 	).Scan(&itemName, &itemGroup, &uom, &cost, &status)
 	if err != nil {
-		return "", fmt.Errorf("request not found")
+		return "", ValidationError("request not found")
 	}
 	if status != "Pending Review" {
-		return "", fmt.Errorf("this request has already been processed")
+		return "", ValidationError("this request has already been processed")
 	}
 
 	newStockID := fmt.Sprintf("NEW-%d", 1000+rowID)
@@ -57,6 +60,10 @@ func ApproveSpecRequest(d *sql.DB, rowID int) (string, error) {
 		newStockID, itemName, uom, itemGroup, cost,
 	)
 	if err != nil {
+		var pe *pq.Error
+		if errors.As(err, &pe) && pe.Code == "23505" {
+			return "", ValidationError("stock ID " + newStockID + " already exists in the item master; an admin needs to resolve the clash")
+		}
 		return "", err
 	}
 
@@ -74,7 +81,7 @@ func RejectSpecRequest(d *sql.DB, rowID int) error {
 	}
 	n, _ := res.RowsAffected()
 	if n == 0 {
-		return fmt.Errorf("this request has already been processed")
+		return ValidationError("this request has already been processed")
 	}
 	return nil
 }

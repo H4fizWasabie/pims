@@ -4,9 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"io/fs"
 	"log"
 	"net/http"
+	"reflect"
 	"strings"
 
 	"github.com/H4fizWasabie/pims/internal/auth"
@@ -39,6 +41,10 @@ func (h *Handler) databases(ctx context.Context) (*sql.DB, *sql.DB) {
 }
 
 func (h *Handler) JSON(w http.ResponseWriter, status int, data any) {
+	// A nil slice encodes as null, which the UI cannot iterate; send [] instead.
+	if v := reflect.ValueOf(data); v.Kind() == reflect.Slice && v.IsNil() {
+		data = []any{}
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(data)
@@ -62,6 +68,17 @@ func (h *Handler) ServerError(w http.ResponseWriter, r *http.Request, err error)
 	log.Printf("ERROR %s %s: %v", r.Method, r.URL.Path, err)
 	db.LogError(h.DB, r.Method+" "+r.URL.Path, err, email)
 	h.Error(w, 500, "Server error. Please try again.")
+}
+
+// businessError sends db.ValidationError messages as a 400 (they are written for
+// users) and treats anything else as a server fault with a generic message.
+func (h *Handler) businessError(w http.ResponseWriter, r *http.Request, err error) {
+	var ve db.ValidationError
+	if errors.As(err, &ve) {
+		h.Error(w, 400, ve.Error())
+		return
+	}
+	h.ServerError(w, r, err)
 }
 
 const (

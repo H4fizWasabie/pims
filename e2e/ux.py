@@ -5,7 +5,8 @@ Run it against a scratch database (it wipes orders/sessions there):
   createdb pims_e2e
   PORT=18083 DATABASE_URL=postgres://pims@127.0.0.1:54329/pims_e2e?sslmode=disable \
     PROCURA_DB_PATH=/tmp/procura.sqlite ADMIN_EMAIL=boss@example.com \
-    ADMIN_PASSWORD=e2epassword1 MASTER_ADMINS=boss@example.com go run . &
+    ADMIN_PASSWORD=e2epassword1 MASTER_ADMINS=boss@example.com \
+    INDENT_APPROVERS=boss@example.com SPEC_APPROVERS=boss@example.com go run . &
   python3 e2e/ux.py
 (/tmp/procura.sqlite only needs an empty `items(stock_id, current_stock)` table; edit
 the PSQL line below if your Postgres port/user differ.)
@@ -21,6 +22,7 @@ def check(name, ok, extra=''):
 with sync_playwright() as p:
     b=p.chromium.launch(); ctx=b.new_context(); page=ctx.new_page()
     errors=[]; page.on('pageerror',lambda e: errors.append(str(e)))
+    external=[]; page.on('request',lambda r: external.append(r.url) if not r.url.startswith(U) and not r.url.startswith('data:') else None)
     dialogs=[]; page.on('dialog',lambda d:(dialogs.append(d.message),d.dismiss()))   # native alert/confirm must never appear
     page.goto(U); page.wait_for_selector('#login_email')
     page.fill('#login_email','boss@example.com'); page.fill('#login_password','e2epassword1'); page.click('#login_btn')
@@ -147,6 +149,46 @@ with sync_playwright() as p:
     page.click('button[onclick="grn_addItem()"]') if page.query_selector('button[onclick="grn_addItem()"]') else None
     page.wait_for_timeout(200)
     check('grn add with nothing shows field messages', len(page.query_selector_all('#module-grn .field-msg'))>=1)
+    # --- approver gating + bulk approve (currently signed in as the clerk)
+    sql("DELETE FROM indents")
+    for sid,stock,qty in [('BA',50,5),('BB',50,5),('BC',1,5)]:
+        sql("INSERT INTO master_items (stock_id,item_name) VALUES ('%s','Bulk %s') ON CONFLICT DO NOTHING"%(sid,sid))
+        pc=sqlite3.connect('/tmp/procura.sqlite'); pc.execute('DELETE FROM items WHERE stock_id=?',(sid,)); pc.execute('INSERT INTO items(stock_id,current_stock) VALUES (?,?)',(sid,stock)); pc.commit(); pc.close()
+        sql("INSERT INTO indents (indent_id,requester,item_name,stock_id,uom,requested_qty) VALUES ('REQ-T','Lab','Bulk %s','%s','pc',%d)"%(sid,sid,qty))
+    page.click('#nav-dashboard'); page.wait_for_selector('#dash_approvalBody tr'); page.wait_for_timeout(300)
+    check('non-approver does not see approve controls', not page.is_visible('#dash_approvalBody .btn-approve') and not page.is_visible('#dash_selAll'))
+    page.evaluate("handleLogout()"); page.wait_for_selector('#login-overlay',state='visible')
+    page.fill('#login_email','boss@example.com'); page.fill('#login_password','e2epassword1'); page.click('#login_btn')
+    page.wait_for_load_state('load'); page.wait_for_selector('#login-overlay',state='hidden'); page.wait_for_selector('#dash_approvalBody tr'); page.wait_for_timeout(400)
+    check('approver sees controls', page.is_visible('#dash_approvalBody .btn-approve') and page.is_visible('#dash_selAll'))
+    check('bulk bar hidden until something is selected', not page.is_visible('#dash_bulkBar'))
+    page.click('#dash_selAll'); page.wait_for_timeout(100)
+    check('select-all shows count', '3 selected' in page.inner_text('#dash_bulkCount'))
+    pend_before=page.inner_text('#dash_valPending')
+    page.click('#dash_bulkBar .btn-approve'); page.wait_for_selector('#ux-dialog[open]')
+    check('bulk confirm names the count', '3 request' in page.inner_text('#ux-msg'))
+    page.click('#ux-dialog .ux-ok'); page.wait_for_selector('.toast.warn'); page.wait_for_timeout(300)
+    t=page.inner_text('#toast-host'); check('partial result toast', '2 approved' in t and '1 could not' in t, t)
+    left=page.query_selector_all('#dash_approvalBody tr')
+    check('approved rows leave, failed row stays with reason', len(left)==1 and 'insufficient' in left[0].inner_text().lower(), [l.inner_text() for l in left])
+    check('pending KPI follows the table', page.inner_text('#dash_valPending')=='1', (pend_before, page.inner_text('#dash_valPending')))
+    check('db: 2 approved, 1 pending', sql("SELECT COUNT(*) FILTER (WHERE status='Approved')||'/'||COUNT(*) FILTER (WHERE status='Pending') FROM indents")=='2/1')
+    # --- accessibility
+    check('pinch-zoom allowed', 'user-scalable' not in page.get_attribute('meta[name=viewport]','content') and page.get_attribute('html','lang')=='en')
+    unnamed=page.evaluate("""Array.from(document.querySelectorAll('input,select,textarea,button')).filter(c=>c.type!=='hidden' && !c.disabled
+        && !(c.getAttribute('aria-label')||c.getAttribute('aria-labelledby')||c.title||(c.labels&&c.labels.length)||(c.tagName==='BUTTON'&&c.textContent.trim())||(c.tagName==='SELECT'&&false))).map(c=>c.tagName+'#'+c.id+'.'+c.className)""")
+    check('every control has an accessible name', unnamed==[], unnamed[:8])
+    page.focus('#nav-dashboard'); page.keyboard.press('Tab'); page.keyboard.press('Tab')
+    focused=page.evaluate("document.activeElement.id")
+    page.keyboard.press('Enter'); page.wait_for_timeout(400)
+    tab=page.evaluate("currentTab")
+    check('nav links are keyboard reachable and operable', focused.startswith('nav-') and tab==focused[4:], (focused,tab))
+    check('active nav exposes aria-current', page.get_attribute('#nav-'+tab,'aria-current')=='page')
+    page.click('#nav-lab_order'); page.fill('#lab_searchInput','zzqx'); page.wait_for_timeout(1200)
+    check('add-custom suggestion is focusable', page.evaluate("(document.querySelector('#lab_searchResults [onclick*=addCustom]')||{}).tabIndex")==0)
+    # --- everything first-party
+    check('no third-party requests', external==[], sorted(set(external))[:5])
+    check('icon font loaded from our server', page.evaluate("document.fonts.check('900 1em \"Font Awesome 6 Free\"')") is True)
     check('no JS errors', errors==[], errors)
     check('no native alert/confirm ever shown', dialogs==[], dialogs)
     b.close()

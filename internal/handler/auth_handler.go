@@ -115,6 +115,9 @@ func (h *Handler) HandleMe(w http.ResponseWriter, r *http.Request) {
 		"email": user.Email,
 		"role":  user.Role,
 		"demo":  user.IsDemo,
+		// Lets the UI hide controls the user could not use anyway.
+		"canApproveIndent": containsFold(h.Cfg.IndentApprovers, user.Email),
+		"canApproveSpec":   containsFold(h.Cfg.SpecApprovers, user.Email),
 	})
 }
 
