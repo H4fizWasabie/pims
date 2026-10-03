@@ -27,6 +27,7 @@ func (h *Handler) Routes() *http.ServeMux {
 	mux.HandleFunc("/api/indent/master-data", Recover(h.AuthMiddleware(h.HandleIndentMasterData)))
 	mux.HandleFunc("/api/indent/submit", Recover(h.AuthMiddleware(h.HandleIndentSubmit)))
 	mux.HandleFunc("/api/indent/approve", Recover(h.AuthMiddleware(h.HandleIndentApprove)))
+	mux.HandleFunc("/api/indent/bulk", Recover(h.AuthMiddleware(h.HandleIndentBulk)))
 	mux.HandleFunc("/api/indent/reject", Recover(h.AuthMiddleware(h.HandleIndentReject)))
 
 	// GRN

@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <base target="_top">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="vendor/fonts/fonts.css" rel="stylesheet">
+  <link rel="stylesheet" href="vendor/fontawesome/css/all.min.css">
 
   <style>
     :root {
@@ -112,6 +112,13 @@
 #ux-dialog button.ux-ok{background:var(--primary,#2563eb);border-color:transparent;color:#fff}
 [aria-invalid="true"]{border-color:#dc2626 !important;outline:none;box-shadow:0 0 0 2px rgba(220,38,38,.15)}
 .field-msg{color:#dc2626;font-size:.8rem;margin:4px 0 8px;line-height:1.3}
+.dash-bulk{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;margin-bottom:10px;position:sticky;top:0;z-index:5}
+.dash-bulk .btn-action{width:auto;padding:6px 12px;font-weight:600}
+.dash-bulk-clear{background:none;border:none;color:#475569;cursor:pointer;text-decoration:underline}
+.row-fail{color:#b91c1c;font-size:.78rem;margin-top:4px}
+/* keyboard focus is always visible; 16px inputs stop iOS zooming on focus now that pinch-zoom is allowed */
+:focus-visible{outline:2px solid #2563eb !important;outline-offset:2px}
+@media (max-width:900px){input,select,textarea{font-size:16px !important}}
 .load-error{padding:18px;text-align:center;color:#6b7280}
 .load-error button{margin-top:8px;padding:8px 14px;border-radius:6px;border:1px solid #d1d5db;background:#fff;cursor:pointer;font-weight:600}
 #login_notice{background:#fef3c7;color:#92400e;border-radius:6px;padding:10px;font-size:.85rem;margin-bottom:12px;display:none}
@@ -395,11 +402,17 @@ var Draft = {
     </button>
   </div>
 
+  <div id="dash_bulkBar" class="dash-bulk" style="display:none;" role="region" aria-label="Bulk actions">
+    <span id="dash_bulkCount" aria-live="polite"></span>
+    <button type="button" class="btn-action btn-approve" onclick="dash_bulk('approve')"><i class="fa-solid fa-check"></i> Approve selected</button>
+    <button type="button" class="btn-action btn-reject" onclick="dash_bulk('reject')"><i class="fa-solid fa-xmark"></i> Reject selected</button>
+    <button type="button" class="dash-bulk-clear" onclick="dash_clearSel()">Clear</button>
+  </div>
   <div class="table-responsive">
     <table class="approval-table">
       <thead>
         <tr>
-          <th>Date</th><th>Requester</th><th>Item Details</th><th>Qty</th><th style="text-align:center;">Action</th>
+          <th class="dash-approver" style="width:36px;"><input type="checkbox" id="dash_selAll" aria-label="Select all pending requests" onchange="dash_selectAll(this.checked)"></th><th>Date</th><th>Requester</th><th>Item Details</th><th>Qty</th><th class="dash-approver" style="text-align:center;">Action</th>
         </tr>
       </thead>
       <tbody id="dash_approvalBody"></tbody>
@@ -435,12 +448,14 @@ var Draft = {
   // We can leave this, but loadDashboard() is also called manually.
   document.addEventListener('DOMContentLoaded', loadDashboard);
 
+  let dash_reqId = 0;
   function loadDashboard() {
     document.getElementById('dash_loader').style.display = 'block';
     document.getElementById('dash_approvalBody').innerHTML = '';
     document.getElementById('dash_specBody').innerHTML = '';
     
-    api("GET", "/api/dashboard/summary").then(renderData).catch(e => {
+    const id = ++dash_reqId; // overlapping loads (login + tab switch) must not both render
+    api("GET", "/api/dashboard/summary").then(d => { if (id === dash_reqId) renderData(d); }).catch(e => {
         if (!e.silent) loadError(document.getElementById('dash_loader'), "Couldn't load the dashboard. " + e.message, loadDashboard);
       });
   }
@@ -464,18 +479,26 @@ var Draft = {
       document.getElementById('dash_emptyMsg').style.display = 'block';
     } else {
       document.getElementById('dash_emptyMsg').style.display = 'none';
-      data.pendingIndents.forEach(item => {
-        tbody.innerHTML += `<tr>
+      tbody.innerHTML = data.pendingIndents.map(item => {
+        return `<tr data-id="${item.rowParams}">
+          <td class="dash-approver"><input type="checkbox" class="dash-sel" aria-label="Select request for ${esc(item.itemName)}" onchange="dash_updateBulk()"></td>
           <td>${esc(item.date)}</td><td><span class="badge-dept">${esc(item.requester)}</span></td>
           <td><div style="font-weight:600;">${esc(item.itemName)}</div><div style="font-size:0.75rem; color:#64748b;">${esc(item.stockId)}</div></td>
           <td style="font-weight:700;">${item.qty}</td>
-          <td style="text-align:center;">
-            <button class="btn-action btn-approve" onclick="decide('approve', ${item.rowParams}, this)"><i class="fa-solid fa-check"></i></button>
-            <button class="btn-action btn-reject" onclick="decide('reject', ${item.rowParams}, this)"><i class="fa-solid fa-xmark"></i></button>
+          <td class="dash-approver" style="text-align:center;">
+            <button class="btn-action btn-approve" aria-label="Approve request for ${esc(item.itemName)}" title="Approve" onclick="decide('approve', ${item.rowParams}, this)"><i class="fa-solid fa-check"></i></button>
+            <button class="btn-action btn-reject" aria-label="Reject request for ${esc(item.itemName)}" title="Reject" onclick="decide('reject', ${item.rowParams}, this)"><i class="fa-solid fa-xmark"></i></button>
           </td>
         </tr>`;
-      });
+      }).join('');
     }
+
+    // Hide approval controls from people who cannot use them (the server enforces this too).
+    const me = window.ME || {};
+    const canIndent = me.canApproveIndent !== false, canSpec = me.canApproveSpec !== false;
+    document.querySelectorAll('.dash-approver').forEach(el => { el.style.display = canIndent ? '' : 'none'; });
+    document.querySelectorAll('.spec-approver').forEach(el => { el.style.display = canSpec ? '' : 'none'; });
+    dash_updateBulk();
 
     // 3. Spec Table
     const specBody = document.getElementById('dash_specBody');
@@ -483,22 +506,71 @@ var Draft = {
       document.getElementById('dash_emptySpecMsg').style.display = 'block';
     } else {
       document.getElementById('dash_emptySpecMsg').style.display = 'none';
-      data.pendingSpecs.forEach(item => {
-        specBody.innerHTML += `<tr>
+      specBody.innerHTML = data.pendingSpecs.map(item => {
+        return `<tr>
           <td style="font-family:monospace;">${esc(item.reqId)}</td><td>${esc(item.requester)}</td>
           <td><div style="font-weight:600;">${esc(item.itemName)}</div><div style="font-size:0.75rem; color:#64748b;">${esc(item.justification)}</div></td>
           <td>RM ${item.cost}</td>
           <td style="text-align:center;">
-            <button class="btn-action btn-approve" onclick="decideSpec('approve', ${item.rowIndex}, this)"><i class="fa-solid fa-check"></i></button>
-            <button class="btn-action btn-reject" onclick="decideSpec('reject', ${item.rowIndex}, this)"><i class="fa-solid fa-xmark"></i></button>
+            <button class="btn-action btn-approve spec-approver" aria-label="Approve new item ${esc(item.itemName)}" title="Approve" onclick="decideSpec('approve', ${item.rowIndex}, this)"><i class="fa-solid fa-check"></i></button>
+            <button class="btn-action btn-reject spec-approver" aria-label="Reject new item ${esc(item.itemName)}" title="Reject" onclick="decideSpec('reject', ${item.rowIndex}, this)"><i class="fa-solid fa-xmark"></i></button>
           </td>
         </tr>`;
-      });
+      }).join('');
     }
 
     // renderCharts(data); // Removed charts
   }
 
+
+  // --- BULK ---
+  function dash_rows() { return Array.from(document.querySelectorAll('#dash_approvalBody tr')); }
+  function dash_selected() { return dash_rows().filter(r => r.querySelector('.dash-sel').checked); }
+  function dash_updateBulk() {
+    const n = dash_selected().length, all = dash_rows().length;
+    document.getElementById('dash_bulkBar').style.display = n ? 'flex' : 'none';
+    document.getElementById('dash_bulkCount').textContent = n + ' selected';
+    const sa = document.getElementById('dash_selAll');
+    sa.checked = n > 0 && n === all; sa.indeterminate = n > 0 && n < all;
+  }
+  function dash_selectAll(on) { dash_rows().forEach(r => { r.querySelector('.dash-sel').checked = on; }); dash_updateBulk(); }
+  function dash_clearSel() { dash_selectAll(false); }
+  // After rows are removed: keep the pending KPI and the empty message honest.
+  function dash_afterRemove() {
+    const n = dash_rows().length;
+    document.getElementById('dash_valPending').innerText = n;
+    document.getElementById('dash_emptyMsg').style.display = n ? 'none' : 'block';
+    dash_updateBulk();
+  }
+  async function dash_bulk(action) {
+    const rows = dash_selected();
+    if (!rows.length) return;
+    const verb = action === 'approve' ? 'Approve' : 'Reject';
+    if (!await confirmDialog(verb + ' ' + rows.length + ' request' + (rows.length > 1 ? 's' : '') + '?', verb)) return;
+    const bar = document.getElementById('dash_bulkBar');
+    bar.querySelectorAll('button').forEach(b => b.disabled = true);
+    rows.forEach(r => { r.style.opacity = '0.5'; });
+    try {
+      const res = await api("POST", "/api/indent/bulk", { action: action, ids: rows.map(r => Number(r.dataset.id)) });
+      const failed = {};
+      res.results.forEach(x => { if (!x.ok) failed[x.id] = x.message; });
+      rows.forEach(r => {
+        const msg = failed[r.dataset.id];
+        if (msg === undefined) { r.remove(); return; }
+        r.style.opacity = '1'; r.querySelector('.dash-sel').checked = false;
+        const cell = r.children[3];
+        cell.querySelectorAll('.row-fail').forEach(n => n.remove());
+        cell.insertAdjacentHTML('beforeend', '<div class="row-fail" role="alert">' + esc(msg) + '</div>');
+      });
+      dash_afterRemove();
+      toast(res.done + ' ' + (action === 'approve' ? 'approved' : 'rejected') + (res.failed ? ', ' + res.failed + ' could not be processed (see the rows)' : ''), res.failed ? 'warn' : 'success');
+    } catch (e) {
+      rows.forEach(r => { r.style.opacity = '1'; });
+      toast(errMsg(e), 'error');
+    } finally {
+      bar.querySelectorAll('button').forEach(b => b.disabled = false);
+    }
+  }
 
   // --- ACTIONS ---
   async function decide(action, rowIdx, btn) {
@@ -515,7 +587,7 @@ var Draft = {
       if(res.success) { 
         row.style.transition = "opacity 0.5s";
         row.style.opacity = "0";
-        setTimeout(() => row.remove(), 500);
+        setTimeout(() => { row.remove(); dash_afterRemove(); }, 500);
       } else { 
         toast(res.message, "error"); 
         row.style.opacity = '1'; 
@@ -908,7 +980,7 @@ var Draft = {
           <td>${item.cost.toFixed(2)}</td>
           <td style="font-weight:bold; color:#2c3e50;">${item.qty}</td>
           <td>${item.total.toFixed(2)}</td>
-          <td style="text-align:center;"><button class="lab-btn-icon" onclick="lab_removeItem(${idx})"><i class="fa-solid fa-trash"></i></button></td>
+          <td style="text-align:center;"><button class="lab-btn-icon" aria-label="Remove item" title="Remove" onclick="lab_removeItem(${idx})"><i class="fa-solid fa-trash"></i></button></td>
         </tr>
       `;
       tbody.innerHTML += row;
@@ -1221,7 +1293,7 @@ var Draft = {
           <td>${item.cost.toFixed(2)}</td>
           <td style="font-weight:bold; color:#008080;">${item.qty}</td>
           <td>${item.total.toFixed(2)}</td>
-          <td style="text-align:center;"><button class="pharm-btn-icon" onclick="pharm_removeItem(${idx})"><i class="fa-solid fa-trash"></i></button></td>
+          <td style="text-align:center;"><button class="pharm-btn-icon" aria-label="Remove item" title="Remove" onclick="pharm_removeItem(${idx})"><i class="fa-solid fa-trash"></i></button></td>
         </tr>
       `;
       tbody.innerHTML += row;
@@ -1395,7 +1467,7 @@ var Draft = {
     else { document.getElementById('med_emptyState').style.display = 'block'; document.getElementById('med_btnSubmit').style.display = 'none'; }
     med_cart.forEach((item, idx) => {
       grandTotal += item.total;
-      tbody.innerHTML += `<tr><td style="font-weight:500;">${esc(item.itemName)}</td><td>${esc(item.uom)}</td><td>${item.cost.toFixed(2)}</td><td style="font-weight:bold;color:#7c3aed;">${item.qty}</td><td>${item.total.toFixed(2)}</td><td style="text-align:center;"><button class="med-btn-icon" onclick="med_removeItem(${idx})"><i class="fa-solid fa-trash"></i></button></td></tr>`;
+      tbody.innerHTML += `<tr><td style="font-weight:500;">${esc(item.itemName)}</td><td>${esc(item.uom)}</td><td>${item.cost.toFixed(2)}</td><td style="font-weight:bold;color:#7c3aed;">${item.qty}</td><td>${item.total.toFixed(2)}</td><td style="text-align:center;"><button class="med-btn-icon" aria-label="Remove item" title="Remove" onclick="med_removeItem(${idx})"><i class="fa-solid fa-trash"></i></button></td></tr>`;
     });
     document.getElementById('med_grandTotalDisplay').innerText = "RM " + grandTotal.toFixed(2);
   }
@@ -1558,7 +1630,7 @@ var Draft = {
     else { document.getElementById('surg_emptyState').style.display = 'block'; document.getElementById('surg_btnSubmit').style.display = 'none'; }
     surg_cart.forEach((item, idx) => {
       grandTotal += item.total;
-      tbody.innerHTML += `<tr><td style="font-weight:500;">${esc(item.itemName)}</td><td>${esc(item.uom)}</td><td>${item.cost.toFixed(2)}</td><td style="font-weight:bold;color:#dc2626;">${item.qty}</td><td>${item.total.toFixed(2)}</td><td style="text-align:center;"><button class="surg-btn-icon" onclick="surg_removeItem(${idx})"><i class="fa-solid fa-trash"></i></button></td></tr>`;
+      tbody.innerHTML += `<tr><td style="font-weight:500;">${esc(item.itemName)}</td><td>${esc(item.uom)}</td><td>${item.cost.toFixed(2)}</td><td style="font-weight:bold;color:#dc2626;">${item.qty}</td><td>${item.total.toFixed(2)}</td><td style="text-align:center;"><button class="surg-btn-icon" aria-label="Remove item" title="Remove" onclick="surg_removeItem(${idx})"><i class="fa-solid fa-trash"></i></button></td></tr>`;
     });
     document.getElementById('surg_grandTotalDisplay').innerText = "RM " + grandTotal.toFixed(2);
   }
@@ -1824,7 +1896,7 @@ var Draft = {
       const row = `<tr>
           <td style="font-family:monospace; color:#6b7280;">${esc(item.stockId)}</td><td style="font-weight:500;">${esc(item.itemName)}</td>
           <td>${esc(item.uom)}</td><td>${item.currentStock}</td><td style="font-weight:bold; color:#008080;">${item.reqQty}</td>
-          <td style="text-align:center;"><button onclick="indent_removeFromCart(${idx})" style="background:none; border:none; color:red; cursor:pointer;"><i class="fa-solid fa-trash"></i></button></td>
+          <td style="text-align:center;"><button aria-label="Remove item" title="Remove" onclick="indent_removeFromCart(${idx})" style="background:none; border:none; color:red; cursor:pointer;"><i class="fa-solid fa-trash"></i></button></td>
         </tr>`;
       tbody.innerHTML += row;
     });
@@ -2291,8 +2363,8 @@ var Draft = {
     <div id="module-stock_take" class="spa-module">
 <!-- Dependencies for React -->
 
-<script defer crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script defer crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script defer src="vendor/react.production.min.js"></script>
+<script defer src="vendor/react-dom.production.min.js"></script>
 
 <div id="stock-take-root" style="min-height: calc(100vh - 60px);"></div>
 
@@ -3047,7 +3119,7 @@ async function usr_del(id, btn) {
     if (!import_xlsxPromise) {
       import_xlsxPromise = new Promise((resolve, reject) => {
         const script = document.createElement('script');
-        script.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+        script.src = 'vendor/xlsx.full.min.js';
         script.onload = resolve;
         script.onerror = () => { import_xlsxPromise = null; reject(new Error('Excel parser failed to load.')); };
         document.head.appendChild(script);
@@ -3461,6 +3533,45 @@ function clearFieldError(el) {
   if (n && n.classList.contains('field-msg')) n.remove();
 }
 
+// ---- Accessibility layer ----
+// Click-only elements (nav links without href, suggestion rows, tick toggles) become keyboard operable.
+(function() {
+  var CLICKABLE = 'a:not([href]), .nav-link, [class*="suggestion-item"], .ol-tick, [onclick]:not(button):not(a):not(input):not(select):not(textarea):not(label):not(.overlay)';
+  function enable(el) {
+    if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '0');
+    if (!el.hasAttribute('role')) el.setAttribute('role', 'button');
+  }
+  function scan(root) {
+    if (root.matches && root.matches(CLICKABLE)) enable(root);
+    root.querySelectorAll && root.querySelectorAll(CLICKABLE).forEach(enable);
+  }
+  // Give controls that have no label an accessible name from nearby text or the placeholder.
+  function nameOrphans(root) {
+    (root.querySelectorAll ? root.querySelectorAll('input, select, textarea') : []).forEach(function(c) {
+      if (c.type === 'hidden' || c.hasAttribute('aria-label') || c.hasAttribute('aria-labelledby') || c.title || (c.labels && c.labels.length)) return;
+      var prev = c.previousElementSibling, text = '';
+      if (prev && prev.tagName === 'LABEL') text = prev.textContent;
+      if (!text && c.parentElement) { var l = c.parentElement.querySelector(':scope > label'); if (l) text = l.textContent; }
+      text = (text || c.placeholder || c.name || c.id.replace(/^[a-z]+_/, '').replace(/([A-Z])/g, ' $1')).replace(/\s+/g, ' ').trim();
+      if (text) c.setAttribute('aria-label', text);
+    });
+  }
+  document.addEventListener('DOMContentLoaded', function() {
+    scan(document.body); nameOrphans(document.body);
+    var ov = document.querySelector('.overlay'); if (ov) ov.setAttribute('aria-hidden', 'true');
+    new MutationObserver(function(muts) {
+      muts.forEach(function(m) { m.addedNodes.forEach(function(n) { if (n.nodeType === 1) { scan(n); nameOrphans(n); } }); });
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+  document.addEventListener('keydown', function(e) {
+    var t = e.target;
+    if ((e.key === 'Enter' || e.key === ' ') && t.getAttribute && t.getAttribute('role') === 'button' &&
+        !/^(BUTTON|INPUT|SELECT|TEXTAREA)$/.test(t.tagName)) {
+      e.preventDefault(); t.click();
+    }
+  });
+})();
+
 // loadError(container, msg, retry): inline error with a Retry button.
 function loadError(container, msg, retry) {
   if (!('orig' in container.dataset)) container.dataset.orig = container.innerHTML; // restore the spinner on retry
@@ -3531,6 +3642,7 @@ function switchTab(moduleId) {
   document.querySelectorAll('.nav-link').forEach(function(l) { l.classList.remove('active-tab'); });
   var nav = document.getElementById('nav-' + moduleId);
   if (nav) nav.classList.add('active-tab');
+  document.querySelectorAll('.nav-link').forEach(function(l) { if (l === nav) l.setAttribute('aria-current', 'page'); else l.removeAttribute('aria-current'); });
 
   if (window.innerWidth <= 900) toggleSidebar();
 }
@@ -3623,6 +3735,7 @@ function handleLogout() {
 
 function loadUser(resume) {
   api('GET', '/api/auth/me').then(function(r) {
+    window.ME = r;
     if (resume && lastUserEmail && lastUserEmail !== r.email) { location.reload(); return; }
     lastUserEmail = r.email;
     restoreDrafts();

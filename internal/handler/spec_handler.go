@@ -47,7 +47,7 @@ func (h *Handler) HandleSpecApprove(w http.ResponseWriter, r *http.Request) {
 	}
 	newStockID, err := db.ApproveSpecRequest(h.DB, req.RowIndex)
 	if err != nil {
-		h.Error(w, 400, err.Error())
+		h.businessError(w, r, err)
 		return
 	}
 	h.Success(w, "Item added to Master DB (ID: "+newStockID+")")
@@ -65,7 +65,7 @@ func (h *Handler) HandleSpecReject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := db.RejectSpecRequest(h.DB, req.RowIndex); err != nil {
-		h.Error(w, 400, err.Error())
+		h.businessError(w, r, err)
 		return
 	}
 	h.Success(w, "Request Rejected")

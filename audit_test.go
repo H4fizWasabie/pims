@@ -1,9 +1,15 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
+	"github.com/H4fizWasabie/pims/internal/handler"
+	"io"
+	"io/fs"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"regexp"
 	"strings"
@@ -501,5 +507,183 @@ func TestExpiryBandsSearchAndCounts(t *testing.T) {
 	res = list("&q=item&band=expired")
 	if res["totalItems"] != float64(2) || res["counts"].(map[string]any)["all"] != float64(10) {
 		t.Errorf("search+band: %v", res)
+	}
+}
+
+func staticHandler(t *testing.T) http.HandlerFunc {
+	t.Helper()
+	sub, err := fs.Sub(staticFiles, "static")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return (&handler.Handler{StaticFS: sub}).HandleSPA
+}
+
+func serve(h http.HandlerFunc, path string, hdr map[string]string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest("GET", path, nil)
+	for k, v := range hdr {
+		req.Header.Set(k, v)
+	}
+	rec := httptest.NewRecorder()
+	h(rec, req)
+	return rec
+}
+
+func TestStaticServing(t *testing.T) {
+	h := staticHandler(t)
+
+	if rec := serve(h, "/vendor/fontawesome/webfonts/fa-solid-900.woff2", nil); rec.Code != 200 || rec.Header().Get("Content-Type") != "font/woff2" {
+		t.Errorf("woff2: %d %q", rec.Code, rec.Header().Get("Content-Type"))
+	} else if !strings.Contains(rec.Header().Get("Cache-Control"), "max-age") {
+		t.Errorf("vendor files should be cacheable, got %q", rec.Header().Get("Cache-Control"))
+	}
+	if rec := serve(h, "/vendor/react.production.min.js", nil); !strings.HasPrefix(rec.Header().Get("Content-Type"), "application/javascript") {
+		t.Errorf("js content type %q", rec.Header().Get("Content-Type"))
+	}
+	// A missing file is a 404, not index.html pretending to be a script or font.
+	if rec := serve(h, "/vendor/nope.js", nil); rec.Code != 404 {
+		t.Errorf("missing .js: %d, want 404", rec.Code)
+	}
+	// Extension-less paths are SPA routes.
+	if rec := serve(h, "/some/route", nil); rec.Code != 200 || !strings.HasPrefix(rec.Header().Get("Content-Type"), "text/html") {
+		t.Errorf("SPA route: %d %q", rec.Code, rec.Header().Get("Content-Type"))
+	}
+
+	// gzip + ETag revalidation
+	plain := serve(h, "/", nil)
+	gz := serve(h, "/", map[string]string{"Accept-Encoding": "gzip"})
+	if gz.Header().Get("Content-Encoding") != "gzip" || gz.Body.Len() >= plain.Body.Len()/2 {
+		t.Errorf("index.html not compressed: %d -> %d", plain.Body.Len(), gz.Body.Len())
+	}
+	if zr, err := gzip.NewReader(gz.Body); err != nil {
+		t.Error(err)
+	} else if b, _ := io.ReadAll(zr); !bytes.Equal(b, plain.Body.Bytes()) {
+		t.Error("gzip body differs from plain body")
+	}
+	etag := plain.Header().Get("ETag")
+	if etag == "" || plain.Header().Get("Cache-Control") != "no-cache" {
+		t.Errorf("app files must revalidate: etag=%q cc=%q", etag, plain.Header().Get("Cache-Control"))
+	}
+	if rec := serve(h, "/", map[string]string{"If-None-Match": etag}); rec.Code != 304 || rec.Body.Len() != 0 {
+		t.Errorf("revalidation: %d with %d bytes", rec.Code, rec.Body.Len())
+	}
+}
+
+// Nothing the page needs may come from a third-party host.
+func TestNoExternalAssets(t *testing.T) {
+	ext := regexp.MustCompile(`(?i)(src|href)=["']https?://|\.src\s*=\s*["']https?://|@import\s+url\(["']?https?://`)
+	for _, f := range []string{"static/index.html", "static/stocktake.js", "static/vendor/fonts/fonts.css", "static/vendor/fontawesome/css/all.min.css"} {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for n, line := range strings.Split(string(b), "\n") {
+			if ext.MatchString(line) && !strings.Contains(line, "w3.org") {
+				t.Errorf("%s:%d loads an external asset: %.120s", f, n+1, strings.TrimSpace(line))
+			}
+		}
+	}
+	// Every vendored file the page references must exist.
+	html, _ := os.ReadFile("static/index.html")
+	for _, m := range regexp.MustCompile(`(?:src|href)="(vendor/[^"]+)"|src = '(vendor/[^']+)'`).FindAllStringSubmatch(string(html), -1) {
+		p := m[1] + m[2]
+		if _, err := os.Stat("static/" + p); err != nil {
+			t.Errorf("index.html references missing %s", p)
+		}
+	}
+}
+
+func TestIndentBulkAndApproverFlags(t *testing.T) {
+	ts := newTestServer(t)
+	defer ts.Close()
+	defer ts.db.Close()
+	admin := ts.adminCookie(t)
+
+	// /me tells the UI what this user may approve.
+	me := decodeMap(ts.get("/api/auth/me", admin))
+	if me["canApproveIndent"] != true || me["canApproveSpec"] != true {
+		t.Errorf("admin should be an approver: %v", me)
+	}
+	ts.post("/api/users/create", mustJSON(t, map[string]string{"email": "plain@test.com", "password": "plainpassword1"}), admin)
+	plain := ts.login(t, "plain@test.com", "plainpassword1")
+	me = decodeMap(ts.get("/api/auth/me", plain))
+	if me["canApproveIndent"] != false || me["canApproveSpec"] != false {
+		t.Errorf("plain user must not be flagged as approver: %v", me)
+	}
+
+	// Three pending lines: two with stock, one without.
+	ok1, ok2, short := uniq("OK1"), uniq("OK2"), uniq("SHORT")
+	for _, s := range []struct {
+		id    string
+		stock int
+	}{{ok1, 50}, {ok2, 50}, {short, 1}} {
+		ts.db.Exec(`INSERT INTO master_items (stock_id, item_name) VALUES ($1, 'x') ON CONFLICT DO NOTHING`, s.id)
+		ts.db.Exec(`INSERT INTO inventory (stock_id, item_name, current_stock) VALUES ($1, 'x', $2)`, s.id, s.stock)
+		ts.post("/api/indent/submit", mustJSON(t, map[string]any{"requester": "Lab",
+			"items": []map[string]any{{"itemName": "x", "stockId": s.id, "uom": "pc", "reqQty": 10}}}), admin)
+	}
+	rowID := func(stock string) int {
+		var id int
+		ts.db.QueryRow(`SELECT id FROM indents WHERE stock_id = $1`, stock).Scan(&id)
+		return id
+	}
+	ids := []int{rowID(ok1), rowID(ok2), rowID(short), 99999999}
+
+	// Non-approvers are refused outright.
+	assertStatus(t, ts.post("/api/indent/bulk", mustJSON(t, map[string]any{"action": "approve", "ids": ids}), plain), 403)
+	// Bad input
+	assertStatus(t, ts.post("/api/indent/bulk", mustJSON(t, map[string]any{"action": "explode", "ids": ids}), admin), 400)
+	assertStatus(t, ts.post("/api/indent/bulk", mustJSON(t, map[string]any{"action": "approve", "ids": []int{}}), admin), 400)
+
+	resp := ts.post("/api/indent/bulk", mustJSON(t, map[string]any{"action": "approve", "ids": ids}), admin)
+	assertStatus(t, resp, 200)
+	out := decodeMap(resp)
+	if out["done"] != float64(2) || out["failed"] != float64(2) {
+		t.Fatalf("done/failed = %v/%v, want 2/2 (%v)", out["done"], out["failed"], out)
+	}
+	byID := map[int]map[string]any{}
+	for _, r := range out["results"].([]any) {
+		m := r.(map[string]any)
+		byID[int(m["id"].(float64))] = m
+	}
+	if !strings.Contains(fmt.Sprint(byID[ids[2]]["message"]), "insufficient") || byID[ids[3]]["ok"] != false {
+		t.Errorf("failure reasons wrong: %v", byID)
+	}
+	status := func(id int) (s string) {
+		ts.db.QueryRow(`SELECT status FROM indents WHERE id = $1`, id).Scan(&s)
+		return
+	}
+	if status(ids[0]) != "Approved" || status(ids[1]) != "Approved" || status(ids[2]) != "Pending" {
+		t.Error("one out-of-stock line must not block or roll back the others")
+	}
+	// Approving again reports "already processed" per line instead of failing the call.
+	again := decodeMap(ts.post("/api/indent/bulk", mustJSON(t, map[string]any{"action": "approve", "ids": ids[:2]}), admin))
+	if again["done"] != float64(0) || again["failed"] != float64(2) {
+		t.Errorf("replay: %v", again)
+	}
+	// Reject works too.
+	rej := decodeMap(ts.post("/api/indent/bulk", mustJSON(t, map[string]any{"action": "reject", "ids": ids[2:3]}), admin))
+	if rej["done"] != float64(1) || status(ids[2]) != "Rejected" {
+		t.Errorf("reject: %v", rej)
+	}
+}
+
+// An empty result must be [] not null, or the UI throws and shows "Search failed"
+// instead of offering to add a custom item.
+func TestEmptyListsAreArraysNotNull(t *testing.T) {
+	ts := newTestServer(t)
+	defer ts.Close()
+	defer ts.db.Close()
+	cookie := ts.adminCookie(t)
+	for _, path := range []string{
+		"/api/master/search?q=zzz-no-such-item", "/api/disposal/search?q=zzz-no-such-batch",
+		"/api/order/list?department=" + uniq("nodept"),
+		"/api/stocktake/history?group=lab&dateFrom=2000-01-01&dateTo=2000-01-02",
+	} {
+		resp := ts.get(path, cookie)
+		assertStatus(t, resp, 200)
+		if body := strings.TrimSpace(readBody(resp)); body != "[]" {
+			t.Errorf("%s returned %q, want []", path, body)
+		}
 	}
 }
