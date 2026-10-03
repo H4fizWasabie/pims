@@ -440,3 +440,66 @@ func TestOrderSubmissionTokenReplays(t *testing.T) {
 		"items": []map[string]any{{"itemName": "I", "uom": "pc", "cost": 1, "qty": 9}}})
 	assertStatus(t, ts.post("/api/order/generate", other, cookie), 409)
 }
+
+func TestExpiryBandsSearchAndCounts(t *testing.T) {
+	ts := newTestServer(t)
+	defer ts.Close()
+	defer ts.db.Close()
+	cookie := ts.adminCookie(t)
+
+	ts.db.Exec(`DELETE FROM expiry_tracking`)
+	// Every boundary day: the SQL band filter must agree with the label the UI shows.
+	want := map[int]string{-1: "EXPIRED", 0: "EXPIRED", 1: "Critical", 30: "Critical", 31: "Action", 90: "Action",
+		91: "Warning", 180: "Warning", 181: "Short Exp", 365: "Short Exp"}
+	for d := range want {
+		name := fmt.Sprintf("Item d%d", d)
+		if d == 30 {
+			name = "Item 100%_sure" // LIKE wildcards in names must not break search
+		}
+		ts.db.Exec(`INSERT INTO expiry_tracking (stock_id, item_name, batch_no, expiry_date) VALUES ($1, $2, $3, CURRENT_DATE + $4::int)`,
+			fmt.Sprint("S", d), name, fmt.Sprint("B", d), d)
+	}
+	ts.db.Exec(`INSERT INTO expiry_tracking (stock_id, item_name, batch_no, expiry_date) VALUES ('FAR', 'Far', 'BF', CURRENT_DATE + 366)`)
+
+	list := func(q string) map[string]any { return decodeMap(ts.get("/api/expiry/list?pageSize=50"+q, cookie)) }
+	bands := map[string][]int{"expired": {-1, 0}, "critical": {1, 30}, "action": {31, 90}, "warning": {91, 180}, "alert": {181, 365}}
+	for band, days := range bands {
+		res := list("&band=" + band)
+		items := res["items"].([]any)
+		if len(items) != len(days) {
+			t.Errorf("band %s: %d items, want %d", band, len(items), len(days))
+		}
+		for _, raw := range items {
+			it := raw.(map[string]any)
+			if d := int(it["daysLeft"].(float64)); want[d] == "" || it["label"] != want[d] {
+				t.Errorf("band %s returned day %v labelled %v", band, it["daysLeft"], it["label"])
+			}
+		}
+		if res["totalItems"] != float64(len(days)) {
+			t.Errorf("band %s totalItems = %v", band, res["totalItems"])
+		}
+	}
+
+	all := list("")
+	counts := all["counts"].(map[string]any)
+	if counts["all"] != float64(10) || counts["expired"] != float64(2) || counts["alert"] != float64(2) {
+		t.Errorf("counts = %v", counts)
+	}
+
+	// Search narrows the list and the counts; % and _ are literal.
+	res := list("&q=100%25_sure")
+	if res["totalItems"] != float64(1) || res["counts"].(map[string]any)["critical"] != float64(1) {
+		t.Errorf("literal wildcard search: %v", res)
+	}
+	if list("&q=%25")["totalItems"] != float64(1) { // "%" alone matches only the one name containing it
+		t.Error("a bare % must not match everything")
+	}
+	if list("&q=b31")["totalItems"] != float64(1) { // by batch, case-insensitive
+		t.Error("batch search failed")
+	}
+	// Search + band together; counts ignore the band so chips stay meaningful.
+	res = list("&q=item&band=expired")
+	if res["totalItems"] != float64(2) || res["counts"].(map[string]any)["all"] != float64(10) {
+		t.Errorf("search+band: %v", res)
+	}
+}
