@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -9,8 +10,9 @@ import (
 )
 
 type orderRequest struct {
-	Department string         `json:"department"`
-	Items      []db.OrderItem `json:"items"`
+	Department      string         `json:"department"`
+	SubmissionToken string         `json:"submissionToken"`
+	Items           []db.OrderItem `json:"items"`
 }
 
 func (h *Handler) HandleOrderGenerate(w http.ResponseWriter, r *http.Request) {
@@ -33,16 +35,21 @@ func (h *Handler) HandleOrderGenerate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	prfNo, err := db.SaveOrders(h.DB, req.Department, req.Items)
+	prfNo, replayed, err := db.SaveOrders(h.DB, req.Department, req.Items, req.SubmissionToken)
+	if errors.Is(err, db.ErrTokenReused) {
+		h.Error(w, 409, "This submission was already used for a different order. Please resubmit.")
+		return
+	}
 	if err != nil {
 		h.ServerError(w, r, err)
 		return
 	}
 
 	h.JSON(w, 200, map[string]any{
-		"success": true,
-		"message": "Order submitted successfully.",
-		"prfNo":   prfNo,
+		"success":  true,
+		"message":  "Order submitted successfully.",
+		"prfNo":    prfNo,
+		"replayed": replayed,
 	})
 }
 

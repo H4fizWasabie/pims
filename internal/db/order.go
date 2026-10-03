@@ -1,7 +1,11 @@
 package db
 
 import (
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 )
@@ -34,18 +38,45 @@ type OrderRow struct {
 	ReceivedTickAt *string `json:"receivedTickAt"`
 }
 
+// ErrTokenReused means a submission token was replayed with a different order.
+var ErrTokenReused = errors.New("submission token reused with a different order")
+
 // SaveOrders stores the lines under one new PRF number and returns it.
 // Line totals are recomputed here; the client's total is never trusted.
-func SaveOrders(d *sql.DB, department string, items []OrderItem) (string, error) {
+// With a token, a retry of the same order returns the original PRF number
+// (replayed=true) instead of creating a duplicate.
+func SaveOrders(d *sql.DB, department string, items []OrderItem, token string) (prfNo string, replayed bool, err error) {
 	tx, err := d.Begin()
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	defer tx.Rollback()
 
-	prfNo, err := nextNumber(tx, "PRF")
+	if token != "" {
+		raw, _ := json.Marshal([]any{department, items})
+		sum := sha256.Sum256(raw)
+		hash := hex.EncodeToString(sum[:])
+		// The unique key makes a concurrent duplicate wait for the first commit.
+		res, err := tx.Exec(`INSERT INTO order_submissions (token, payload_hash) VALUES ($1, $2) ON CONFLICT DO NOTHING`, token, hash)
+		if err != nil {
+			return "", false, err
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			var prev string
+			var prf sql.NullString
+			if err := tx.QueryRow(`SELECT payload_hash, prf_no FROM order_submissions WHERE token = $1`, token).Scan(&prev, &prf); err != nil {
+				return "", false, err
+			}
+			if prev != hash {
+				return "", false, ErrTokenReused
+			}
+			return prf.String, true, nil
+		}
+	}
+
+	prfNo, err = nextNumber(tx, "PRF")
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	for _, item := range items {
 		_, err := tx.Exec(
@@ -54,10 +85,15 @@ func SaveOrders(d *sql.DB, department string, items []OrderItem) (string, error)
 			prfNo, department, item.ItemName, item.StockID, item.UOM, item.Qty, item.Cost, item.Qty*item.Cost, item.Reason,
 		)
 		if err != nil {
-			return "", err
+			return "", false, err
 		}
 	}
-	return prfNo, tx.Commit()
+	if token != "" {
+		if _, err := tx.Exec(`UPDATE order_submissions SET prf_no = $1 WHERE token = $2`, prfNo, token); err != nil {
+			return "", false, err
+		}
+	}
+	return prfNo, false, tx.Commit()
 }
 
 func GetOrders(d *sql.DB, department, dateFrom, dateTo string) ([]OrderRow, error) {

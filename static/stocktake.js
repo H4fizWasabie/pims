@@ -552,9 +552,9 @@ const ReviewScreen = ({
     [field]: value
   }));
   const save = () => {
-    if (!data.location) return alert('Please select a location');
-    if (!data.itemName) return alert('Product Name is required');
-    if (!data.qty) return alert('Physical quantity is required');
+    if (!data.location) return toast('Please select a location', 'warn');
+    if (!data.itemName) return toast('Product Name is required', 'warn');
+    if (!data.qty) return toast('Physical quantity is required', 'warn');
     localStorage.setItem('take_lastLoc', data.location);
     onSave(data);
   };
@@ -1007,7 +1007,7 @@ const StockTakeApp = () => {
       images: b64Array
     }).then(result => {
       if (result.error) {
-        alert("AI Error: " + result.error);
+        toast("AI could not read the label: " + result.error, "error");
       }
 
       // Pass raw AI result directly — fuzzy matching happens in ReviewScreen
@@ -1018,7 +1018,7 @@ const StockTakeApp = () => {
       });
       setView('review');
     }).catch(err => {
-      alert("Extraction failed: " + err);
+      if (!err.silent) toast("Extraction failed: " + errMsg(err), "error");
       setView('camera');
     });
   };
@@ -1037,12 +1037,12 @@ const StockTakeApp = () => {
       expiry: finalData.expiry || ''
     };
     api("POST", "/api/stocktake/submit", payload).then(() => {
-      // Success! Give momentary feedback then back to camera
+      toast('Saved', 'success');
       setView('camera');
       setImages([]);
       setExtractedData({});
     }).catch(err => {
-      alert("Error saving: " + err.message);
+      if (!err.silent) toast("Could not save: " + errMsg(err), "error");
       setView('review');
     });
   };

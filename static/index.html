@@ -95,6 +95,25 @@
       .overlay.active { display: block; opacity: 1; }
     }
   </style>
+<style>
+/* Shared UX layer: toasts and dialogs (replace alert/confirm/prompt) */
+#toast-host{position:fixed;top:16px;right:16px;z-index:10050;display:flex;flex-direction:column;gap:8px;max-width:min(92vw,380px);}
+.toast{background:#1f2937;color:#fff;padding:12px 14px;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.25);font-size:.9rem;line-height:1.35;display:flex;gap:10px;align-items:flex-start;border-left:4px solid #3b82f6;animation:toast-in .15s ease-out;}
+.toast.success{border-left-color:#10b981}.toast.error{border-left-color:#ef4444}.toast.warn{border-left-color:#f59e0b}
+.toast button{background:transparent;border:1px solid rgba(255,255,255,.5);color:#fff;border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.8rem;white-space:nowrap;}
+.toast .toast-msg{flex:1;white-space:pre-line}
+@keyframes toast-in{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+#ux-dialog{border:none;border-radius:12px;padding:22px;max-width:min(92vw,420px);width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);}
+#ux-dialog::backdrop{background:rgba(15,23,42,.55)}
+#ux-dialog p{margin:0 0 14px;white-space:pre-line;color:#1f2937;line-height:1.4}
+#ux-dialog input{width:100%;padding:10px;border:1px solid #d1d5db;border-radius:6px;font-size:1rem;box-sizing:border-box;margin-bottom:14px}
+#ux-dialog .ux-actions{display:flex;gap:8px;justify-content:flex-end}
+#ux-dialog button{padding:9px 16px;border-radius:6px;border:1px solid #d1d5db;background:#fff;cursor:pointer;font-weight:600}
+#ux-dialog button.ux-ok{background:var(--primary,#2563eb);border-color:transparent;color:#fff}
+.load-error{padding:18px;text-align:center;color:#6b7280}
+.load-error button{margin-top:8px;padding:8px 14px;border-radius:6px;border:1px solid #d1d5db;background:#fff;cursor:pointer;font-weight:600}
+#login_notice{background:#fef3c7;color:#92400e;border-radius:6px;padding:10px;font-size:.85rem;margin-bottom:12px;display:none}
+</style>
 </head>
 <body>
 
@@ -167,6 +186,28 @@
   </div>
 </nav>
 
+<script>
+// Unsent carts survive a reload or closed tab. Keyed per user, dropped after 7 days.
+var lastUserEmail = null; // set once /api/auth/me answers; drafts are per user
+var Draft = {
+  key: function(name) { return 'pims_draft:' + (lastUserEmail || '') + ':' + name; },
+  save: function(name, items) {
+    if (!lastUserEmail) return; // not signed in yet (e.g. initial render)
+    try {
+      if (items && items.length) localStorage.setItem(this.key(name), JSON.stringify({ t: Date.now(), items: items }));
+      else localStorage.removeItem(this.key(name));
+    } catch (e) { /* storage full or blocked: drafts are best-effort */ }
+  },
+  load: function(name) {
+    try {
+      var d = JSON.parse(localStorage.getItem(this.key(name)));
+      return d && Array.isArray(d.items) && d.items.length && Date.now() - d.t < 7 * 864e5 ? d.items : null;
+    } catch (e) { return null; }
+  }
+};
+</script>
+<div id="toast-host" role="status" aria-live="polite"></div>
+<dialog id="ux-dialog" aria-labelledby="ux-msg"><form method="dialog"><p id="ux-msg"></p><input id="ux-input" type="text" style="display:none" aria-label="Value"><div class="ux-actions"><button value="cancel" class="ux-cancel">Cancel</button><button value="ok" class="ux-ok">OK</button></div></form></dialog>
 <div id="login-overlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:var(--dark-grey);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px;">
   <div style="background:white;border-radius:12px;padding:40px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);text-align:center;">
     <i class="fa-solid fa-boxes-stacked" style="font-size:48px;color:var(--primary);margin-bottom:16px;"></i>
@@ -174,6 +215,7 @@
     <p style="color:#6b7280;margin:0 0 24px;font-size:0.9rem;">Procurement &amp; Inventory Management</p>
     <input type="email" id="login_email" placeholder="Email" style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:6px;font-size:1rem;margin-bottom:12px;box-sizing:border-box;" autocomplete="email">
     <input type="password" id="login_password" placeholder="Password" style="width:100%;padding:12px;border:1px solid #d1d5db;border-radius:6px;font-size:1rem;margin-bottom:8px;box-sizing:border-box;" autocomplete="current-password">
+    <div id="login_notice" role="status"></div>
     <div id="login_error" style="color:#dc2626;font-size:0.85rem;margin-bottom:12px;display:none;"></div>
     <button id="login_btn" onclick="doLogin()" style="width:100%;padding:12px;background:var(--primary);color:white;border:none;border-radius:6px;font-size:1rem;font-weight:600;cursor:pointer;">Sign In</button>
     <div style="display:flex;align-items:center;gap:10px;margin:14px 0 10px;">
@@ -397,8 +439,7 @@
     document.getElementById('dash_specBody').innerHTML = '';
     
     api("GET", "/api/dashboard/summary").then(renderData).catch(e => {
-        alert("Connection Error: " + e.message);
-        document.getElementById('dash_loader').innerText = "Failed to load data.";
+        if (!e.silent) loadError(document.getElementById('dash_loader'), "Couldn't load the dashboard. " + e.message, loadDashboard);
       });
   }
 
@@ -458,8 +499,8 @@
 
 
   // --- ACTIONS ---
-  function decide(action, rowIdx, btn) {
-    if(!confirm(`Confirm ${action.toUpperCase()}?`)) return;
+  async function decide(action, rowIdx, btn) {
+    if(!await confirmDialog(`Confirm ${action.toUpperCase()}?`)) return;
     
     // UI Lock
     const row = btn.closest('tr'); 
@@ -474,20 +515,20 @@
         row.style.opacity = "0";
         setTimeout(() => row.remove(), 500);
       } else { 
-        alert(res.message); 
+        toast(res.message, "error"); 
         row.style.opacity = '1'; 
         buttons.forEach(b => b.disabled = false);
         if(res.message.includes("Data mismatch")) loadDashboard();
       }
     }).catch(e => {
-        alert("Server Error: " + e);
+        toast(errMsg(e), "error");
         row.style.opacity = '1'; 
         buttons.forEach(b => b.disabled = false);
     });
   }
 
-  function decideSpec(action, rowIdx, btn) {
-    if(!confirm(`Confirm ${action.toUpperCase()} for New Item?`)) return;
+  async function decideSpec(action, rowIdx, btn) {
+    if(!await confirmDialog(`Confirm ${action.toUpperCase()} for New Item?`)) return;
     
     const row = btn.closest('tr'); 
     row.style.opacity = '0.5'; 
@@ -497,15 +538,15 @@
     const path = action === 'approve' ? '/api/spec/approve' : '/api/spec/reject';
     api("POST", path, {rowIndex: rowIdx}).then(res => {
       if(res.success) { 
-        alert(res.message); 
+        toast(res.message, "success"); 
         row.remove(); 
       } else { 
-        alert(res.message); 
+        toast(res.message, "error"); 
         row.style.opacity = '1'; 
         buttons.forEach(b => b.disabled = false);
       }
     }).catch(e => {
-        alert("Server Error: " + e);
+        toast(errMsg(e), "error");
         row.style.opacity = '1'; 
         buttons.forEach(b => b.disabled = false);
     });
@@ -818,8 +859,8 @@
     const stockId = document.getElementById('lab_stockId').value;
     const qty = parseFloat(document.getElementById('lab_qtyInput').value);
     
-    if(!stockId) { alert("Select item."); return; }
-    if(!qty || qty <= 0) { alert("Invalid quantity."); return; }
+    if(!stockId) { toast("Select item.", "warn"); return; }
+    if(!qty || qty <= 0) { toast("Invalid quantity.", "warn"); return; }
 
     lab_cart.push({
       stockId: stockId,
@@ -843,6 +884,7 @@
   }
 
   function lab_renderCart() {
+    Draft.save('lab', lab_cart);
     const tbody = document.getElementById('lab_cartTableBody');
     tbody.innerHTML = '';
     let grandTotal = 0;
@@ -875,19 +917,20 @@
 
   function lab_removeItem(idx) { lab_cart.splice(idx, 1); lab_renderCart(); }
 
-  function lab_submitOrder() {
+  async function lab_submitOrder() {
     if(lab_cart.length === 0) return;
-    if(!confirm("Submit order for " + lab_cart.length + " items?")) return;
+    if(!await confirmDialog("Submit order for " + lab_cart.length + " items?")) return;
 
     const btn = document.getElementById('lab_btnSubmit'); const oldText = btn.innerHTML;
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...'; btn.disabled = true;
 
-    api("POST", "/api/order/generate", { department: LAB_DEPT_NAME, items: lab_cart }).then(r => {
-      alert(r.message || 'Order submitted');
+    api("POST", "/api/order/generate", { department: LAB_DEPT_NAME, items: lab_cart, submissionToken: submissionToken("order-lab_cart", [LAB_DEPT_NAME, lab_cart]) }).then(r => {
+      clearSubmissionToken("order-lab_cart");
+      toast((r.message || 'Order submitted') + (r.prfNo ? ' (' + r.prfNo + ')' : ''), "success");
       lab_cart = []; lab_renderCart();
       btn.innerHTML = oldText; btn.disabled = false;
     }).catch(err => {
-      alert("Error: " + err); btn.innerHTML = oldText; btn.disabled = false;
+      toast(errMsg(err), "error"); btn.innerHTML = oldText; btn.disabled = false;
     });
   }
 </script>
@@ -1131,8 +1174,8 @@
     const stockId = document.getElementById('pharm_stockId').value;
     const qty = parseFloat(document.getElementById('pharm_qtyInput').value);
     
-    if(!stockId) { alert("Select item."); return; }
-    if(!qty || qty <= 0) { alert("Invalid quantity."); return; }
+    if(!stockId) { toast("Select item.", "warn"); return; }
+    if(!qty || qty <= 0) { toast("Invalid quantity.", "warn"); return; }
 
     pharm_cart.push({
       stockId: stockId,
@@ -1154,6 +1197,7 @@
   }
 
   function pharm_renderCart() {
+    Draft.save('pharm', pharm_cart);
     const tbody = document.getElementById('pharm_cartTableBody');
     tbody.innerHTML = '';
     let grandTotal = 0;
@@ -1186,19 +1230,20 @@
 
   function pharm_removeItem(idx) { pharm_cart.splice(idx, 1); pharm_renderCart(); }
 
-  function pharm_submitOrder() {
+  async function pharm_submitOrder() {
     if(pharm_cart.length === 0) return;
-    if(!confirm("Submit order for " + pharm_cart.length + " items?")) return;
+    if(!await confirmDialog("Submit order for " + pharm_cart.length + " items?")) return;
 
     const btn = document.getElementById('pharm_btnSubmit'); const oldText = btn.innerHTML;
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...'; btn.disabled = true;
 
-    api("POST", "/api/order/generate", { department: PHARM_DEPT_NAME, items: pharm_cart }).then(r => {
-      alert(r.message || 'Order submitted');
+    api("POST", "/api/order/generate", { department: PHARM_DEPT_NAME, items: pharm_cart, submissionToken: submissionToken("order-pharm_cart", [PHARM_DEPT_NAME, pharm_cart]) }).then(r => {
+      clearSubmissionToken("order-pharm_cart");
+      toast((r.message || 'Order submitted') + (r.prfNo ? ' (' + r.prfNo + ')' : ''), "success");
       pharm_cart = []; pharm_renderCart();
       btn.innerHTML = oldText; btn.disabled = false;
     }).catch(err => {
-      alert("Error: " + err); btn.innerHTML = oldText; btn.disabled = false;
+      toast(errMsg(err), "error"); btn.innerHTML = oldText; btn.disabled = false;
     });
   }
 </script>
@@ -1335,13 +1380,14 @@
   function med_addItem() {
     const stockId = document.getElementById('med_stockId').value;
     const qty = parseFloat(document.getElementById('med_qtyInput').value);
-    if(!stockId) { alert("Select item."); return; }
-    if(!qty || qty <= 0) { alert("Invalid quantity."); return; }
+    if(!stockId) { toast("Select item.", "warn"); return; }
+    if(!qty || qty <= 0) { toast("Invalid quantity.", "warn"); return; }
     med_cart.push({ stockId, itemName: document.getElementById('med_itemName').value, uom: document.getElementById('med_uom').value, cost: parseFloat(document.getElementById('med_cost').value), supplier: document.getElementById('med_supplier').value, qty, reason: document.getElementById('med_reasonInput').value, total: qty * parseFloat(document.getElementById('med_cost').value) });
     med_renderCart();
     med_searchInput.value = ''; document.getElementById('med_qtyInput').value = ''; document.getElementById('med_reasonInput').value = ''; document.getElementById('med_stockId').value = ''; document.getElementById('med_stockDisplay').value = '';
   }
   function med_renderCart() {
+    Draft.save('med', med_cart);
     const tbody = document.getElementById('med_cartTableBody'); tbody.innerHTML = ''; let grandTotal = 0;
     if(med_cart.length > 0) { document.getElementById('med_emptyState').style.display = 'none'; document.getElementById('med_btnSubmit').style.display = 'block'; }
     else { document.getElementById('med_emptyState').style.display = 'block'; document.getElementById('med_btnSubmit').style.display = 'none'; }
@@ -1352,15 +1398,16 @@
     document.getElementById('med_grandTotalDisplay').innerText = "RM " + grandTotal.toFixed(2);
   }
   function med_removeItem(idx) { med_cart.splice(idx, 1); med_renderCart(); }
-  function med_submitOrder() {
+  async function med_submitOrder() {
     if(med_cart.length === 0) return;
-    if(!confirm("Submit order for " + med_cart.length + " items?")) return;
+    if(!await confirmDialog("Submit order for " + med_cart.length + " items?")) return;
     const btn = document.getElementById('med_btnSubmit'); const oldText = btn.innerHTML;
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...'; btn.disabled = true;
-    api("POST", "/api/order/generate", { department: MED_DEPT_NAME, items: med_cart }).then(r => {
-      alert(r.message || 'Order submitted');
+    api("POST", "/api/order/generate", { department: MED_DEPT_NAME, items: med_cart, submissionToken: submissionToken("order-med_cart", [MED_DEPT_NAME, med_cart]) }).then(r => {
+      clearSubmissionToken("order-med_cart");
+      toast((r.message || 'Order submitted') + (r.prfNo ? ' (' + r.prfNo + ')' : ''), "success");
       med_cart = []; med_renderCart(); btn.innerHTML = oldText; btn.disabled = false;
-    }).catch(err => { alert("Error: " + err); btn.innerHTML = oldText; btn.disabled = false; });
+    }).catch(err => { toast(errMsg(err), "error"); btn.innerHTML = oldText; btn.disabled = false; });
   }
 </script>
 </div>
@@ -1496,13 +1543,14 @@
   function surg_addItem() {
     const stockId = document.getElementById('surg_stockId').value;
     const qty = parseFloat(document.getElementById('surg_qtyInput').value);
-    if(!stockId) { alert("Select item."); return; }
-    if(!qty || qty <= 0) { alert("Invalid quantity."); return; }
+    if(!stockId) { toast("Select item.", "warn"); return; }
+    if(!qty || qty <= 0) { toast("Invalid quantity.", "warn"); return; }
     surg_cart.push({ stockId, itemName: document.getElementById('surg_itemName').value, uom: document.getElementById('surg_uom').value, cost: parseFloat(document.getElementById('surg_cost').value), supplier: document.getElementById('surg_supplier').value, qty, reason: document.getElementById('surg_reasonInput').value, total: qty * parseFloat(document.getElementById('surg_cost').value) });
     surg_renderCart();
     surg_searchInput.value = ''; document.getElementById('surg_qtyInput').value = ''; document.getElementById('surg_reasonInput').value = ''; document.getElementById('surg_stockId').value = ''; document.getElementById('surg_stockDisplay').value = '';
   }
   function surg_renderCart() {
+    Draft.save('surg', surg_cart);
     const tbody = document.getElementById('surg_cartTableBody'); tbody.innerHTML = ''; let grandTotal = 0;
     if(surg_cart.length > 0) { document.getElementById('surg_emptyState').style.display = 'none'; document.getElementById('surg_btnSubmit').style.display = 'block'; }
     else { document.getElementById('surg_emptyState').style.display = 'block'; document.getElementById('surg_btnSubmit').style.display = 'none'; }
@@ -1513,15 +1561,16 @@
     document.getElementById('surg_grandTotalDisplay').innerText = "RM " + grandTotal.toFixed(2);
   }
   function surg_removeItem(idx) { surg_cart.splice(idx, 1); surg_renderCart(); }
-  function surg_submitOrder() {
+  async function surg_submitOrder() {
     if(surg_cart.length === 0) return;
-    if(!confirm("Submit order for " + surg_cart.length + " items?")) return;
+    if(!await confirmDialog("Submit order for " + surg_cart.length + " items?")) return;
     const btn = document.getElementById('surg_btnSubmit'); const oldText = btn.innerHTML;
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...'; btn.disabled = true;
-    api("POST", "/api/order/generate", { department: SURG_DEPT_NAME, items: surg_cart }).then(r => {
-      alert(r.message || 'Order submitted');
+    api("POST", "/api/order/generate", { department: SURG_DEPT_NAME, items: surg_cart, submissionToken: submissionToken("order-surg_cart", [SURG_DEPT_NAME, surg_cart]) }).then(r => {
+      clearSubmissionToken("order-surg_cart");
+      toast((r.message || 'Order submitted') + (r.prfNo ? ' (' + r.prfNo + ')' : ''), "success");
       surg_cart = []; surg_renderCart(); btn.innerHTML = oldText; btn.disabled = false;
-    }).catch(err => { alert("Error: " + err); btn.innerHTML = oldText; btn.disabled = false; });
+    }).catch(err => { toast(errMsg(err), "error"); btn.innerHTML = oldText; btn.disabled = false; });
   }
 </script>
 </div>
@@ -1663,7 +1712,7 @@
     api("GET", "/api/indent/master-data").then(data => {
       INDENT_MASTER_DATA = data;
     }).catch(err => {
-      alert("Unable to load inventory data: " + err.message);
+      if (!err.silent) toast("Couldn't load items for the indent form. " + err.message, "error", { sticky: true, action: { label: "Retry", onClick: loadIndentMasterData } });
     }).finally(() => {
       loader.style.display = 'none';
     });
@@ -1743,8 +1792,8 @@
 
   function indent_addToCart() {
     const qty = parseFloat(document.getElementById('indent_qtyInput').value);
-    if (!indent_selectedItem) { alert("Please search and select an item first."); return; }
-    if (!qty || qty <= 0) { alert("Please enter a valid quantity."); return; }
+    if (!indent_selectedItem) { toast("Please search and select an item first.", "warn"); return; }
+    if (!qty || qty <= 0) { toast("Please enter a valid quantity.", "warn"); return; }
 
     indent_cart.push({
       stockId: indent_selectedItem.stockId, itemName: indent_selectedItem.itemName,
@@ -1757,6 +1806,7 @@
   }
 
   function indent_renderCart() {
+    Draft.save('indent', indent_cart);
     const tbody = document.getElementById('indent_cartTableBody');
     tbody.innerHTML = '';
     
@@ -1780,19 +1830,19 @@
 
   function indent_removeFromCart(idx) { indent_cart.splice(idx, 1); indent_renderCart(); }
 
-  function indent_submitFinal() {
+  async function indent_submitFinal() {
     const requester = document.getElementById('indent_requesterSelect').value;
-    if (!requester) { alert("Please select your Department."); document.getElementById('indent_requesterSelect').focus(); return; }
-    if (!confirm(`Submit request for ${indent_cart.length} items?`)) return;
+    if (!requester) { toast("Please select your Department.", "warn"); document.getElementById('indent_requesterSelect').focus(); return; }
+    if(!await confirmDialog(`Submit request for ${indent_cart.length} items?`)) return;
 
     const btn = document.getElementById('indent_btnFinalSubmit');
     const originalText = btn.innerHTML;
     btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...';
 
     api("POST", "/api/indent/submit", { requester: requester, items: indent_cart }).then(res => {
-        alert(res.message); indent_cart = []; indent_renderCart(); btn.disabled = false; btn.innerHTML = originalText;
+        toast(res.message, "success"); indent_cart = []; indent_renderCart(); btn.disabled = false; btn.innerHTML = originalText;
       }).catch(err => {
-        alert("Error: " + err.message); btn.disabled = false; btn.innerHTML = originalText;
+        toast(errMsg(err), "error"); btn.disabled = false; btn.innerHTML = originalText;
       });
   }
 </script>
@@ -1924,7 +1974,7 @@
 </div>
 
 <script>
-  function spec_submitRequest() {
+  async function spec_submitRequest() {
     // Validation
     const name = document.getElementById('spec_itemName').value;
     const dept = document.getElementById('spec_department').value;
@@ -1933,11 +1983,11 @@
     const just = document.getElementById('spec_justification').value;
     
     if(!name || !dept || !cat || !specs || !just) {
-      alert("Please fill in all required fields (Name, Dept, Category, Specs, Justification).");
+      toast("Please fill in all required fields (Name, Dept, Category, Specs, Justification).", "warn");
       return;
     }
 
-    if(!confirm("Submit this new item request to the Inventory Manager?")) return;
+    if(!await confirmDialog("Submit this new item request to the Inventory Manager?")) return;
 
     const btn = document.getElementById('spec_btnSubmit');
     const oldText = btn.innerHTML;
@@ -1961,14 +2011,14 @@
     };
 
     api("POST", "/api/spec/submit", payload).then(res => {
-        alert("✅ " + res.message);
+        toast(res.message, "success");
         // Reset Form
         document.querySelectorAll('.spec-input').forEach(i => i.value = '');
         document.querySelectorAll('select').forEach(i => i.selectedIndex = 0);
         btn.innerHTML = oldText;
         btn.disabled = false;
       }).catch(err => {
-        alert("Error: " + err.message);
+        toast(errMsg(err), "error");
         btn.innerHTML = oldText;
         btn.disabled = false;
       });
@@ -2019,7 +2069,7 @@
   
   <div class="grn-top-bar">
     <div class="grn-header"><h2><i class="fa-solid fa-truck-ramp-box"></i> Goods Receipt Note</h2></div>
-    <button class="grn-btn-new" onclick="grn_resetForm()"><i class="fa-solid fa-plus"></i> New GRN</button>
+    <button class="grn-btn-new" onclick="grn_confirmReset()"><i class="fa-solid fa-plus"></i> New GRN</button>
   </div>
 
   <div class="grn-meta-card">
@@ -2083,26 +2133,29 @@
 <script>
   let GRN_MASTER_ITEMS = [];
   let GRN_CART_ITEMS = [];
-  let GRN_SUBMISSION_TOKEN = ""; 
+  let GRN_SUBMISSION_TOKEN = crypto.randomUUID();
 
+  // Opening the tab only refreshes item/supplier lists; an unsent GRN is kept.
   function grn_loadMasterData() {
-    grn_resetForm(); 
     const status = document.getElementById('grn_status');
     status.textContent = 'Loading inventory data...';
     status.style.display = 'block';
     status.style.color = '#64748b';
     api("GET", "/api/grn/master-data").then(data => {
       GRN_MASTER_ITEMS = data.items;
-      const dl = document.getElementById('grn_supplierList');
+      const dl = document.getElementById('grn_supplierList'); dl.innerHTML = '';
       (data.suppliers || []).forEach(s => {
         const opt = document.createElement('option'); opt.value = s; dl.appendChild(opt);
       });
       status.style.display = 'none';
     }).catch(err => {
-      status.textContent = 'Unable to load inventory data: ' + err.message;
-      status.style.display = 'block';
-      status.style.color = '#b91c1c';
+      if (!err.silent) loadError(status, "Couldn't load items for GRN. " + err.message, grn_loadMasterData);
     });
+  }
+
+  async function grn_confirmReset() {
+    if (GRN_CART_ITEMS.length && !await confirmDialog('Discard the GRN you are entering and start a new one?', 'Discard')) return;
+    grn_resetForm();
   }
 
   function grn_resetForm() {
@@ -2152,7 +2205,7 @@
     const batch = document.getElementById('grn_batchNo').value;
     const uom = document.getElementById('grn_itemUom').value || '-';
 
-    if(!name || !po || !doQ || !inv) { alert("Please fill all Qty fields."); return; }
+    if(!name || !po || !doQ || !inv) { toast("Please fill all Qty fields.", "warn"); return; }
 
     const isMatch = (po === doQ && doQ === inv);
     const status = isMatch ? 'Match' : 'Mismatch';
@@ -2175,6 +2228,7 @@
   }
 
   function grn_renderTable() {
+    Draft.save('grn', GRN_CART_ITEMS);
     const tbody = document.getElementById('grn_tableBody');
     tbody.innerHTML = '';
     
@@ -2195,10 +2249,10 @@
   }
 
   function grn_submitGRN() {
-    if(GRN_CART_ITEMS.length === 0) { alert("No items to submit."); return; }
+    if(GRN_CART_ITEMS.length === 0) { toast("No items to submit.", "warn"); return; }
     
     const supplier = document.getElementById('grn_supplierInput').value;
-    if(!supplier) { alert("Please enter Supplier Name."); return; }
+    if(!supplier) { toast("Please enter Supplier Name.", "warn"); return; }
 
     const btn = document.getElementById('grn_btnSubmit');
     const oldText = btn.innerHTML;
@@ -2216,10 +2270,10 @@
 
     api("POST", "/api/grn/submit", payload).then(r => {
         btn.innerHTML = oldText; btn.disabled = false;
-        alert(r.message + " (" + r.grnNo + ")");
+        toast(r.message + " (" + r.grnNo + ")", "success");
         grn_resetForm();
       }).catch(err => {
-        alert("Error: " + err); btn.innerHTML = oldText; btn.disabled = false;
+        toast(errMsg(err), "error"); btn.innerHTML = oldText; btn.disabled = false;
       });
   }
 </script>
@@ -2379,17 +2433,17 @@
 
   document.addEventListener('click', e => { if (!disp_searchInput.contains(e.target)) disp_suggestions.style.display = 'none'; });
 
-  function disp_submitDisposal() {
+  async function disp_submitDisposal() {
     const stockId = document.getElementById('disp_stockId').value;
     const batch = document.getElementById('disp_batchHidden').value;
     const qty = document.getElementById('disp_qtyInput').value;
     const reason = document.getElementById('disp_reasonInput').value;
 
-    if(!stockId) { alert("Please search and select a batch."); return; }
-    if(!qty || qty <= 0) { alert("Please enter a valid quantity."); return; }
-    if(!reason) { alert("Please select a reason."); return; }
+    if(!stockId) { toast("Please search and select a batch.", "warn"); return; }
+    if(!qty || qty <= 0) { toast("Please enter a valid quantity.", "warn"); return; }
+    if(!reason) { toast("Please select a reason.", "warn"); return; }
 
-    if(!confirm("⚠️ CONFIRM DISPOSAL?\n\nThis logs the disposal. Stock quantity remains managed by Procura.")) return;
+    if(!await confirmDialog("⚠️ CONFIRM DISPOSAL?\n\nThis logs the disposal. Stock quantity remains managed by Procura.")) return;
 
     const btn = document.getElementById('disp_btnSubmit');
     const oldText = btn.innerHTML;
@@ -2411,7 +2465,7 @@
         btn.disabled = false;
         
         if (res.success) {
-          alert("✅ " + res.message);
+          toast(res.message, "success");
           // Reset
           disp_searchInput.value = '';
           document.getElementById('disp_itemDisplay').value = '';
@@ -2420,10 +2474,10 @@
           document.getElementById('disp_batchHidden').value = '';
           document.getElementById('disp_remarksInput').value = '';
         } else {
-          alert("❌ Error: " + res.message);
+          toast(res.message, "error");
         }
       }).catch(err => {
-        alert("System Error: " + err.message);
+        toast(errMsg(err), "error");
         btn.innerHTML = oldText;
         btn.disabled = false;
       });
@@ -2509,8 +2563,8 @@
 <script>
   document.getElementById('analy_dispDate').innerText = new Date().toLocaleDateString();
 
-  function analy_runAnalysis() {
-    if (!confirm("Run Analysis?")) return;
+  async function analy_runAnalysis() {
+    if(!await confirmDialog("Run Analysis?")) return;
     const btn = document.getElementById('analy_btnRun'); const oldText = btn.innerHTML;
     btn.innerHTML = 'Analyzing...'; btn.disabled = true;
 
@@ -2519,9 +2573,9 @@
       if (res.success) {
         document.getElementById('analy_dispSurplus').innerText = "RM " + res.surplus.toFixed(2);
         document.getElementById('analy_dispShortage').innerText = "RM " + res.shortage.toFixed(2);
-        alert(res.message); analy_loadTableData();
-      } else { alert(res.message); }
-    }).catch(err => { alert("Error: " + err); btn.innerHTML = oldText; btn.disabled = false; });
+        toast(res.message, "success"); analy_loadTableData();
+      } else { toast(res.message, "error"); }
+    }).catch(err => { toast(errMsg(err), "error"); btn.innerHTML = oldText; btn.disabled = false; });
   }
 
   function analy_loadTableData() {
@@ -2532,7 +2586,7 @@
         let badgeClass = item.status === 'Surplus' ? 'analy-bg-green' : (item.status === 'Shortage' ? 'analy-bg-red' : 'analy-bg-gray');
         tbody.innerHTML += `<tr><td style="font-family:monospace;">${esc(item.stockId)}</td><td>${esc(item.name)}</td><td>${item.sysQty}</td><td>${item.phyQty}</td><td style="font-weight:bold;">${item.diff}</td><td>RM ${parseFloat(item.val).toFixed(2)}</td><td><span class="analy-status-badge ${badgeClass}">${esc(item.status)}</span></td></tr>`;
       });
-    }).catch(err => console.error(err));
+    }).catch(err => { if (!err.silent) toast("Couldn't load the analysis. " + err.message, "error"); });
   }
 </script>
 </div>
@@ -2801,8 +2855,8 @@
           });
         }
 
-        function exp_markExpired(rowIndex) {
-          const remark = prompt("Enter remark (e.g., 'Disposed'):", "Disposed");
+        async function exp_markExpired(rowIndex) {
+          const remark= await promptDialog("Enter remark (e.g., 'Disposed'):", "Disposed");
           if (remark) { api("POST", "/api/expiry/update-remark", {rowIndex: rowIndex, remark: "EXPIRED: " + remark}).then(() => { exp_loadData(); }); }
         }
 
@@ -2865,11 +2919,11 @@ function usr_add() {
     usr_load();
   }).catch(function(e) { document.getElementById('usr_msg').innerText = 'Error: '+e.message; });
 }
-function usr_del(id, btn) {
-  if(!confirm('Delete this user?')) return;
+async function usr_del(id, btn) {
+  if(!await confirmDialog('Delete this user?')) return;
   api('POST', '/api/users/delete?id='+id).then(function(r) {
     usr_load();
-  }).catch(function(e) { alert('Error: '+e.message); });
+  }).catch(function(e) { toast(errMsg(e), "error"); });
 }
 </script>
 </div>
@@ -3049,9 +3103,9 @@ function usr_del(id, btn) {
     reader.readAsArrayBuffer(file);
   }
 
-  function importExcel() {
+  async function importExcel() {
     if (!import_parsedData || import_parsedData.length === 0) return;
-    if (!confirm('This will REPLACE all existing master data with ' + import_parsedData.length + ' items. Continue?')) return;
+    if(!await confirmDialog('This will REPLACE all existing master data with ' + import_parsedData.length + ' items. Continue?')) return;
 
     import_status.className = 'imp-status info';
     import_status.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Uploading...';
@@ -3136,7 +3190,7 @@ function loadScanHistory() {
     SH_ROWS = rows;
     document.getElementById('sh_loader').style.display = 'none';
     renderScanHistory();
-  }).catch(function(e){document.getElementById('sh_loader').innerText='Error: '+e.message;});
+  }).catch(function(e){ if (!e.silent) loadError(document.getElementById('sh_loader'), "Couldn't load scan history. " + e.message, loadScanHistory); });
 }
 function renderScanHistory() {
   var q = (document.getElementById('sh_search').value || '').toLowerCase();
@@ -3205,7 +3259,7 @@ function loadOrderList() {
         OL_ROWS = rows;
         document.getElementById('ol_loader').style.display = 'none';
         renderOrderList();
-      }).catch(function(e) { document.getElementById('ol_loader').innerText = 'Error: ' + e.message; });
+      }).catch(function(e) { if (!e.silent) loadError(document.getElementById('ol_loader'), "Couldn't load orders. " + e.message, loadOrderList); });
     });
 }
 function renderOrderList() {
@@ -3229,7 +3283,7 @@ function olTick(id, field, el) {
   api('POST', '/api/order/tick', {id: id, field: field}).then(function(r) {
     loadOrderList();
   }).catch(function(e) {
-    alert('Error: ' + e.message);
+    toast(errMsg(e), "error");
   });
 }
 </script>
@@ -3261,12 +3315,102 @@ function esc(s) {
   });
 }
 
+// ---- Shared UX layer ----
+// toast(msg, type): non-blocking message. type: info | success | warn | error.
+// Pass {sticky:true, action:{label, onClick}} for a message that needs a response.
+function toast(msg, type, opts) {
+  if (!msg) return null;
+  opts = opts || {};
+  var el = document.createElement('div');
+  el.className = 'toast ' + (type || 'info');
+  if (type === 'error') el.setAttribute('role', 'alert');
+  var m = document.createElement('span'); m.className = 'toast-msg'; m.textContent = msg; el.appendChild(m);
+  function close() { if (el.parentNode) el.parentNode.removeChild(el); }
+  if (opts.action) {
+    var b = document.createElement('button'); b.textContent = opts.action.label;
+    b.onclick = function() { close(); opts.action.onClick(); };
+    el.appendChild(b);
+  }
+  el.close = close;
+  document.getElementById('toast-host').appendChild(el);
+  if (!opts.sticky) setTimeout(close, type === 'error' ? 8000 : 4500);
+  return el;
+}
+
+// errMsg turns whatever a failed api() call threw into text for a toast.
+// Session-expiry errors are silent: the login screen already explains it.
+function errMsg(e) { return e && e.silent ? '' : ((e && e.message) || String(e)); }
+
+function showDialog(msg, withInput, def, okLabel) {
+  var d = document.getElementById('ux-dialog'), input = document.getElementById('ux-input');
+  document.getElementById('ux-msg').textContent = msg;
+  input.style.display = withInput ? '' : 'none';
+  input.value = withInput ? (def || '') : '';
+  d.querySelector('.ux-ok').textContent = okLabel || 'OK';
+  return new Promise(function(resolve) {
+    d.onclose = function() { resolve(d.returnValue === 'ok' ? (withInput ? input.value : true) : (withInput ? null : false)); };
+    d.returnValue = 'cancel';
+    d.showModal();
+    (withInput ? input : d.querySelector('.ux-ok')).focus();
+  });
+}
+// confirmDialog(msg) -> Promise<boolean>; promptDialog(msg, default) -> Promise<string|null>
+function confirmDialog(msg, okLabel) { return showDialog(msg, false, '', okLabel || 'Confirm'); }
+function promptDialog(msg, def) { return showDialog(msg, true, def, 'OK'); }
+
+function restoreDrafts() {
+  var spec = [
+    ['lab', 'Lab order', function(v) { lab_cart = v; lab_renderCart(); }, function() { return lab_cart; }],
+    ['pharm', 'Pharmacy order', function(v) { pharm_cart = v; pharm_renderCart(); }, function() { return pharm_cart; }],
+    ['med', 'Medical ward order', function(v) { med_cart = v; med_renderCart(); }, function() { return med_cart; }],
+    ['surg', 'Surgical ward order', function(v) { surg_cart = v; surg_renderCart(); }, function() { return surg_cart; }],
+    ['indent', 'Indent request', function(v) { indent_cart = v; indent_renderCart(); }, function() { return indent_cart; }],
+    ['grn', 'GRN', function(v) { GRN_CART_ITEMS = v; grn_renderTable(); }, function() { return GRN_CART_ITEMS; }]
+  ];
+  var restored = [];
+  spec.forEach(function(sp) {
+    var saved = Draft.load(sp[0]);
+    if (saved && !sp[3]().length) { sp[2](saved); restored.push(sp[1] + ' (' + saved.length + ')'); }
+  });
+  if (restored.length) toast('Restored your unsent work: ' + restored.join(', ') + '.', 'info');
+}
+
+// loadError(container, msg, retry): inline error with a Retry button.
+function loadError(container, msg, retry) {
+  if (!('orig' in container.dataset)) container.dataset.orig = container.innerHTML; // restore the spinner on retry
+  container.style.display = 'block';
+  container.innerHTML = '<div class="load-error"><div>' + esc(msg) + '</div><button type="button">Retry</button></div>';
+  container.querySelector('button').onclick = function() { container.innerHTML = container.dataset.orig; retry(); };
+}
+
+function newToken() {
+  return (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2);
+}
+// Submission tokens make a retried submit safe: the same cart keeps the same token
+// until it succeeds; a changed cart gets a fresh one.
+var _subTokens = {};
+function submissionToken(key, payload) {
+  var fp = JSON.stringify(payload);
+  if (!_subTokens[key] || _subTokens[key].fp !== fp) _subTokens[key] = { fp: fp, token: newToken() };
+  return _subTokens[key].token;
+}
+function clearSubmissionToken(key) { delete _subTokens[key]; }
+
+// Auth endpoints answer 401 as a normal result; everything else means the session ended.
+var AUTH_PATHS = ['/api/auth/login', '/api/auth/me', '/api/auth/logout', '/api/auth/demo'];
+
 function api(method, path, body) {
   var opts = { method: method, headers: { 'Content-Type': 'application/json' } };
   if (body) opts.body = JSON.stringify(body);
   var prefix = location.pathname.indexOf('/pims') === 0 ? '/pims' : '';
-  return fetch(prefix + path, opts).then(function(r) {
+  return fetch(prefix + path, opts).catch(function() {
+    throw new Error("Can't reach the server. Check your connection and try again.");
+  }).then(function(r) {
     return r.json().catch(function() { return {}; }).then(function(data) {
+      if (r.status === 401 && AUTH_PATHS.indexOf(path) < 0) {
+        showLogin('Your session ended. Sign in to continue where you left off.');
+        var e = new Error('Session expired'); e.silent = true; throw e;
+      }
       if (!r.ok) throw new Error(data.message || 'HTTP ' + r.status);
       return data;
     });
@@ -3278,7 +3422,9 @@ function masterSearchItems(query) {
 }
 
 // SPA switching
+var currentTab = 'dashboard';
 function switchTab(moduleId) {
+  currentTab = moduleId;
   var titles = {
     'dashboard': 'Dashboard', 'lab_order': 'Lab Order', 'pharmacy_order': 'Pharmacy Order',
     'medical_ward_order': 'Medical Ward Order', 'surgical_ward_order': 'Surgical Ward Order',
@@ -3309,38 +3455,53 @@ function toggleSidebar() {
 }
 
 // Auth
-function showLogin() {
+// Who was signed in when the login screen appeared. If someone else signs in,
+// the page reloads so the previous user's unsent carts are never shown to them.
+function showLogin(notice) {
   stopIdleTimer();
+  var n = document.getElementById('login_notice');
+  n.textContent = typeof notice === 'string' ? notice : '';
+  n.style.display = n.textContent ? 'block' : 'none';
   document.getElementById('login-overlay').style.display = 'flex';
   document.getElementById('sidebar').style.display = 'none';
   document.querySelector('.main-wrapper').style.display = 'none';
   document.getElementById('demo-banner').style.display = 'none';
 }
-function hideLogin() {
+function hideLogin(resume) {
   document.getElementById('login-overlay').style.display = 'none';
   document.getElementById('sidebar').style.display = '';
   document.querySelector('.main-wrapper').style.display = '';
-  switchTab('dashboard');
+  switchTab(resume ? currentTab : 'dashboard');
   startIdleTimer();
 }
-var idleTimer = null;
+var idleTimer = null, idleWarnTimer = null, idleWarnToast = null;
 var IDLE_TIMEOUT_MS = 10 * 60 * 1000;
+var IDLE_WARN_MS = 60 * 1000; // warn this long before the timeout
 var HEARTBEAT_MS = 5 * 60 * 1000;
 function resetIdleTimer() {
   if (document.getElementById('login-overlay').style.display === 'flex') return;
-  clearTimeout(idleTimer);
+  clearTimeout(idleTimer); clearTimeout(idleWarnTimer);
+  if (idleWarnToast) { idleWarnToast.close(); idleWarnToast = null; }
+  idleWarnTimer = setTimeout(function() {
+    idleWarnToast = toast('You will be signed out in a minute due to inactivity.', 'warn', {
+      sticky: true, action: { label: 'Stay signed in', onClick: function() { api('GET', '/api/auth/me').catch(function() {}); resetIdleTimer(); } }
+    });
+  }, IDLE_TIMEOUT_MS - IDLE_WARN_MS);
   idleTimer = setTimeout(function() {
-    api('POST', '/api/auth/logout').finally(showLogin);
+    api('POST', '/api/auth/logout').finally(function() { showLogin('You were signed out after 10 minutes of inactivity. Sign in to continue where you left off.'); });
   }, IDLE_TIMEOUT_MS);
 }
 function startIdleTimer() { resetIdleTimer(); }
-function stopIdleTimer() { clearTimeout(idleTimer); idleTimer = null; }
+function stopIdleTimer() {
+  clearTimeout(idleTimer); clearTimeout(idleWarnTimer); idleTimer = null;
+  if (idleWarnToast) { idleWarnToast.close(); idleWarnToast = null; }
+}
 ['pointerdown', 'keydown', 'mousemove', 'touchstart', 'scroll'].forEach(function(event) {
   document.addEventListener(event, resetIdleTimer, {passive: true});
 });
 setInterval(function() {
   if (document.visibilityState !== 'visible' || document.getElementById('login-overlay').style.display === 'flex') return;
-  api('GET', '/api/auth/me').catch(showLogin);
+  api('GET', '/api/auth/me').catch(function() { showLogin('Your session ended. Sign in to continue where you left off.'); });
 }, HEARTBEAT_MS);
 document.addEventListener('visibilitychange', function() {
   if (document.visibilityState === 'visible') resetIdleTimer();
@@ -3353,7 +3514,7 @@ function doLogin() {
   var err = document.getElementById('login_error');
   btn.disabled = true; btn.innerText = 'Signing in...'; err.style.display = 'none';
   api('POST', '/api/auth/login', { email: email, password: password }).then(function(r) {
-    if (r.success) { loadUser(); hideLogin(); }
+    if (r.success) { loadUser(true); }
     else { err.innerText = r.message || 'Login failed'; err.style.display = 'block'; }
   }).catch(function(e) {
     err.innerText = 'Connection error: ' + e.message; err.style.display = 'block';
@@ -3363,7 +3524,7 @@ function doDemoLogin(btn) {
   btn.disabled = true;
   api('POST', '/api/auth/demo').then(function(r) {
     if (r.success) { loadUser(); }
-  }).finally(function() { btn.disabled = false; });
+  }).catch(function(e) { toast(errMsg(e), 'error'); }).finally(function() { btn.disabled = false; });
 }
 // Allow Enter key to submit
 document.getElementById('login_password').addEventListener('keydown', function(e) { if (e.key === 'Enter') doLogin(); });
@@ -3374,8 +3535,11 @@ function handleLogout() {
   });
 }
 
-function loadUser() {
+function loadUser(resume) {
   api('GET', '/api/auth/me').then(function(r) {
+    if (resume && lastUserEmail && lastUserEmail !== r.email) { location.reload(); return; }
+    lastUserEmail = r.email;
+    restoreDrafts();
     document.getElementById('userEmail').innerText = r.demo ? (r.email || '') + ' (Demo)' : (r.email || 'Not logged in');
     document.getElementById('userActions').style.display = '';
     document.getElementById('demo-banner').style.display = r.demo ? 'flex' : 'none';
@@ -3384,7 +3548,7 @@ function loadUser() {
     // Show admin-only nav items
     var isAdmin = r.role === 'admin';
     document.querySelectorAll('.admin-only').forEach(function(el) { el.style.display = isAdmin ? '' : 'none'; });
-    hideLogin();
+    hideLogin(resume);
   }).catch(function() {
     document.getElementById('userEmail').innerText = 'Not logged in';
     document.getElementById('userActions').style.display = 'none';
@@ -3430,7 +3594,7 @@ function doChangePassword() {
   if (n1 !== n2) { err.innerText = 'Passwords do not match'; err.style.display = 'block'; return; }
   api('POST', '/api/auth/change-password', {oldPassword: old, newPassword: n1})
   .then(function() {
-    alert('Password changed successfully');
+    toast('Password changed successfully', "success");
     document.getElementById('pw-modal').style.display = 'none';
   }).catch(function(e) {
     err.innerText = e.message; err.style.display = 'block';

@@ -174,6 +174,13 @@ CREATE TABLE IF NOT EXISTS orders (
     received_tick_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+-- One row per client submission token, so a retried order replays instead of duplicating.
+CREATE TABLE IF NOT EXISTS order_submissions (
+    token TEXT PRIMARY KEY,
+    payload_hash TEXT NOT NULL,
+    prf_no TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
 CREATE INDEX IF NOT EXISTS idx_orders_department ON orders(department);
 CREATE INDEX IF NOT EXISTS idx_orders_prf_no ON orders(prf_no);
 
