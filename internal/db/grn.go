@@ -2,9 +2,14 @@ package db
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
+
+	"github.com/lib/pq"
 )
+
+var ErrDuplicateGRN = errors.New("duplicate GRN")
 
 type GRNMasterData struct {
 	Items     []GRNItem `json:"items"`
@@ -76,12 +81,20 @@ func CheckGRNDoubleEntry(d *sql.DB, token string) (bool, error) {
 	return exists, err
 }
 
-func SubmitGRN(d *sql.DB, grnNo, createdBy string, data *GRNSubmitData) error {
+// SubmitGRN saves the GRN and returns its number. A repeated submission
+// token is reported as ErrDuplicateGRN (the token column is UNIQUE, so this
+// holds even for concurrent double-submits).
+func SubmitGRN(d *sql.DB, createdBy string, data *GRNSubmitData) (string, error) {
 	tx, err := d.Begin()
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer tx.Rollback()
+
+	grnNo, err := nextNumber(tx, "GRN")
+	if err != nil {
+		return "", err
+	}
 
 	var logID int
 	err = tx.QueryRow(
@@ -90,7 +103,11 @@ func SubmitGRN(d *sql.DB, grnNo, createdBy string, data *GRNSubmitData) error {
 		grnNo, data.Supplier, data.DODate, data.InvNo, data.PONo, createdBy, data.SubmissionToken,
 	).Scan(&logID)
 	if err != nil {
-		return err
+		var pe *pq.Error
+		if errors.As(err, &pe) && pe.Code == "23505" && pe.Constraint == "grn_logs_submission_token_key" {
+			return "", ErrDuplicateGRN
+		}
+		return "", err
 	}
 
 	for _, item := range data.Items {
@@ -99,40 +116,28 @@ func SubmitGRN(d *sql.DB, grnNo, createdBy string, data *GRNSubmitData) error {
 			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
 			logID, item.ItemName, item.QtyPO, item.QtyDO, item.QtyInv, item.UOM, item.Batch, item.Status, item.Remarks)
 		if err != nil {
-			return err
+			return "", err
 		}
 	}
-	return tx.Commit()
+	return grnNo, tx.Commit()
 }
 
-func NextGRNNumber(d *sql.DB) (string, error) {
-	todayStr := time.Now().Format("20060102")
-	key := "GRN_" + todayStr
+type rowQueryer interface {
+	QueryRow(query string, args ...any) *sql.Row
+}
 
-	var count int
-	err := d.QueryRow(
+// nextNumber returns PREFIX-YYYYMMDD-NNN from a per-day counter. Pass the
+// caller's tx so a failed submit rolls the counter back (no gaps, no dupes).
+func nextNumber(q rowQueryer, prefix string) (string, error) {
+	day := time.Now().Format("20060102")
+	var n int
+	err := q.QueryRow(
 		`INSERT INTO id_counters (key, counter) VALUES ($1, 1)
 		 ON CONFLICT (key) DO UPDATE SET counter = id_counters.counter + 1
-		 RETURNING counter`, key,
-	).Scan(&count)
+		 RETURNING counter`, prefix+"_"+day,
+	).Scan(&n)
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("GRN-%s-%03d", todayStr, count), nil
-}
-
-func NextPRFNumber(d *sql.DB) (string, error) {
-	todayStr := time.Now().Format("20060102")
-	key := "PRF_" + todayStr
-
-	var count int
-	err := d.QueryRow(
-		`INSERT INTO id_counters (key, counter) VALUES ($1, 1)
-		 ON CONFLICT (key) DO UPDATE SET counter = id_counters.counter + 1
-		 RETURNING counter`, key,
-	).Scan(&count)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("PRF-%s-%03d", todayStr, count), nil
+	return fmt.Sprintf("%s-%s-%03d", prefix, day, n), nil
 }

@@ -4,6 +4,9 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
+	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -19,7 +22,26 @@ type User struct {
 	IsDemo       bool
 }
 
+var ErrWrongPassword = errors.New("wrong password")
+
+// defaultAdminEmail/Password were seeded by early migrations; EnsureAdmin
+// replaces that seed and WarnDefaultAdmin flags installs that still have it.
+const (
+	defaultAdminEmail    = "admin@pims.local"
+	defaultAdminPassword = "admin123"
+)
+
+func normEmail(email string) string { return strings.ToLower(strings.TrimSpace(email)) }
+
 func CreateUser(d *sql.DB, email, password, role string) (*User, error) {
+	email = normEmail(email)
+	var taken bool
+	if err := d.QueryRow(`SELECT EXISTS(SELECT 1 FROM users WHERE LOWER(email) = $1)`, email).Scan(&taken); err != nil {
+		return nil, err
+	}
+	if taken {
+		return nil, fmt.Errorf("user already exists")
+	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, err
@@ -36,8 +58,8 @@ func CreateUser(d *sql.DB, email, password, role string) (*User, error) {
 func GetUserByEmail(d *sql.DB, email string) (*User, error) {
 	var u User
 	err := d.QueryRow(
-		`SELECT id, email, password_hash, role FROM users WHERE email = $1`,
-		email,
+		`SELECT id, email, password_hash, role FROM users WHERE LOWER(email) = $1`,
+		normEmail(email),
 	).Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Role)
 	if err != nil {
 		return nil, err
@@ -69,7 +91,8 @@ func ValidateSession(d *sql.DB, token string) (*User, error) {
 	if err != nil {
 		return nil, err
 	}
-	if _, err := d.Exec(`UPDATE sessions SET expires_at = $1 WHERE token = $2`, time.Now().Add(sessionIdleTimeout), token); err != nil {
+	// Slide the expiry at most once a minute instead of writing on every request.
+	if _, err := d.Exec(`UPDATE sessions SET expires_at = $1::timestamptz WHERE token = $2 AND expires_at < $1::timestamptz - INTERVAL '1 minute'`, time.Now().Add(sessionIdleTimeout), token); err != nil {
 		return nil, err
 	}
 	return &u, nil
@@ -100,6 +123,29 @@ func CreateDemoSession(d *sql.DB) (string, error) {
 		randomToken(32), time.Now().Add(sessionIdleTimeout),
 	).Scan(&token)
 	return token, err
+}
+
+// PurgeExpiredSessions drops dead sessions (including abandoned demo ones).
+func PurgeExpiredSessions(d *sql.DB) error {
+	_, err := d.Exec(`DELETE FROM sessions WHERE expires_at < NOW()`)
+	return err
+}
+
+// EnsureAdmin creates the bootstrap admin if no user with that email exists.
+func EnsureAdmin(d *sql.DB, email, password string) error {
+	email = normEmail(email)
+	var exists bool
+	if err := d.QueryRow(`SELECT EXISTS(SELECT 1 FROM users WHERE LOWER(email) = $1)`, email).Scan(&exists); err != nil || exists {
+		return err
+	}
+	_, err := CreateUser(d, email, password, "admin")
+	return err
+}
+
+// HasDefaultAdmin reports whether the old seeded admin/admin123 login still works.
+func HasDefaultAdmin(d *sql.DB) bool {
+	u, err := GetUserByEmail(d, defaultAdminEmail)
+	return err == nil && u.CheckPassword(defaultAdminPassword)
 }
 
 func DeleteSession(d *sql.DB, token string) error {
@@ -142,18 +188,29 @@ func DeleteUser(d *sql.DB, id int) error {
 	return err
 }
 
-func ChangePassword(d *sql.DB, email, oldPass, newPass string) error {
+// ChangePassword sets a new password and signs out every other session of the user.
+func ChangePassword(d *sql.DB, email, oldPass, newPass, keepToken string) error {
 	u, err := GetUserByEmail(d, email)
 	if err != nil {
 		return err
 	}
 	if !u.CheckPassword(oldPass) {
-		return sql.ErrNoRows // reusing this to signal wrong password
+		return ErrWrongPassword
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(newPass), bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}
-	_, err = d.Exec(`UPDATE users SET password_hash = $1 WHERE email = $2`, string(hash), email)
-	return err
+	tx, err := d.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err = tx.Exec(`UPDATE users SET password_hash = $1 WHERE id = $2`, string(hash), u.ID); err != nil {
+		return err
+	}
+	if _, err = tx.Exec(`DELETE FROM sessions WHERE user_id = $1 AND token <> $2`, u.ID, keepToken); err != nil {
+		return err
+	}
+	return tx.Commit()
 }

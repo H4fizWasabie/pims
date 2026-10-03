@@ -48,6 +48,8 @@ func SearchDisposalBatches(d *sql.DB, query string) ([]DisposalItem, error) {
 	return items, rows.Err()
 }
 
+// SubmitDisposal logs the disposal using the master cost (the client's cost
+// is ignored) and tags the batch's expiry remarks.
 func SubmitDisposal(d *sql.DB, data *DisposalSubmit, userEmail string) error {
 	tx, err := d.Begin()
 	if err != nil {
@@ -55,20 +57,23 @@ func SubmitDisposal(d *sql.DB, data *DisposalSubmit, userEmail string) error {
 	}
 	defer tx.Rollback()
 
+	var cost float64
+	if err := tx.QueryRow(`SELECT COALESCE((SELECT cost FROM master_items WHERE stock_id = $1), 0)`, data.StockID).Scan(&cost); err != nil {
+		return err
+	}
 	_, err = tx.Exec(
 		`INSERT INTO disposal_logs (stock_id, item_name, batch_no, qty_disposed, unit_cost, total_loss, reason, remarks, user_email)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-		data.StockID, data.ItemName, data.Batch, data.Qty, data.Cost, data.Qty*data.Cost, data.Reason, data.Remarks, userEmail,
+		data.StockID, data.ItemName, data.Batch, data.Qty, cost, data.Qty*cost, data.Reason, data.Remarks, userEmail,
 	)
 	if err != nil {
 		return err
 	}
-
-	// Update expiry tracking remarks — non-fatal
-	tx.Exec(
+	if _, err = tx.Exec(
 		`UPDATE expiry_tracking SET remarks = CONCAT('DISPOSED ', $3::text, ' (', $4::text, ') | ', COALESCE(remarks, ''))
 		 WHERE stock_id = $1 AND batch_no = $2`,
-		data.StockID, data.Batch, data.Qty, data.Reason)
-
+		data.StockID, data.Batch, data.Qty, data.Reason); err != nil {
+		return err
+	}
 	return tx.Commit()
 }

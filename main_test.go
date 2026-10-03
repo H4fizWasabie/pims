@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/H4fizWasabie/pims/internal/config"
 	"github.com/H4fizWasabie/pims/internal/db"
@@ -100,6 +101,10 @@ func newTestServer(t *testing.T) *testServer {
 		t.Fatalf("migrate: %v", err)
 	}
 
+	if err := db.EnsureAdmin(database, "admin@pims.local", "admin123"); err != nil {
+		t.Fatalf("ensure admin: %v", err)
+	}
+
 	// Production parity: demo sessions must read the isolated demo schema.
 	if err := db.EnsureDemoSchema(database); err != nil {
 		t.Fatalf("demo schema: %v", err)
@@ -110,51 +115,20 @@ func newTestServer(t *testing.T) *testServer {
 	}
 
 	cfg := &config.Config{
-		Port:            "0",
-		DatabaseURL:     databaseURL,
-		SessionSecret:   "test-secret",
+		Port:             "0",
+		DatabaseURL:      databaseURL,
 		OpenRouterAPIKey: os.Getenv("OPENROUTER_API_KEY"),
-		OpenRouterModel: "google/gemma-4-31b-it:free",
-		GeminiAPIKey:    os.Getenv("GEMINI_API_KEY"),
-		IndentApprovers: []string{"admin@pims.local", "approver@test.com", "kisame350@gmail.com"},
-		SpecApprovers:   []string{"admin@pims.local", "spec@test.com", "kisame350@gmail.com"},
-		MasterAdmins:    []string{"admin@pims.local", "admin@test.com", "kisame350@gmail.com"},
+		OpenRouterModel:  "google/gemma-4-31b-it:free",
+		GeminiAPIKey:     os.Getenv("GEMINI_API_KEY"),
+		IndentApprovers:  []string{"admin@pims.local", "approver@test.com", "kisame350@gmail.com"},
+		SpecApprovers:    []string{"admin@pims.local", "spec@test.com", "kisame350@gmail.com"},
+		MasterAdmins:     []string{"admin@pims.local", "admin@test.com", "kisame350@gmail.com"},
 	}
 
 	staticFS, _ := fs.Sub(staticFiles, "static")
 	h := &handler.Handler{DB: database, DemoDB: demoDatabase, Cfg: cfg, StaticFS: staticFS}
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/api/auth/login", handler.Recover(h.HandleLogin))
-	mux.HandleFunc("/api/auth/demo", handler.Recover(h.HandleDemoLogin))
-	mux.HandleFunc("/api/auth/logout", handler.Recover(h.HandleLogout))
-	mux.HandleFunc("/api/auth/me", handler.Recover(h.HandleMe))
-	mux.HandleFunc("/api/master/chunk", handler.Recover(h.AuthMiddleware(h.HandleMasterChunk)))
-	mux.HandleFunc("/api/master/search", handler.Recover(h.AuthMiddleware(h.HandleMasterSearch)))
-	mux.HandleFunc("/api/master/replace", handler.Recover(h.AdminMiddleware(h.HandleMasterReplace)))
-	mux.HandleFunc("/api/master/all", handler.Recover(h.AuthMiddleware(h.HandleMasterAll)))
-	mux.HandleFunc("/api/inventory/chunk", handler.Recover(h.AuthMiddleware(h.HandleInventoryChunk)))
-	mux.HandleFunc("/api/inventory/replace", handler.Recover(h.AdminMiddleware(h.HandleInventoryReplace)))
-	mux.HandleFunc("/api/indent/master-data", handler.Recover(h.AuthMiddleware(h.HandleIndentMasterData)))
-	mux.HandleFunc("/api/indent/submit", handler.Recover(h.AuthMiddleware(h.HandleIndentSubmit)))
-	mux.HandleFunc("/api/indent/approve", handler.Recover(h.AuthMiddleware(h.HandleIndentApprove)))
-	mux.HandleFunc("/api/indent/reject", handler.Recover(h.AuthMiddleware(h.HandleIndentReject)))
-	mux.HandleFunc("/api/grn/master-data", handler.Recover(h.AuthMiddleware(h.HandleGRNMasterData)))
-	mux.HandleFunc("/api/grn/submit", handler.Recover(h.AuthMiddleware(h.HandleGRNSubmit)))
-	mux.HandleFunc("/api/stocktake/submit", handler.Recover(h.AuthMiddleware(h.HandleStockTakeSubmit)))
-	mux.HandleFunc("/api/stocktake/today", handler.Recover(h.AuthMiddleware(h.HandleStockTakeToday)))
-	mux.HandleFunc("/api/disposal/search", handler.Recover(h.AuthMiddleware(h.HandleDisposalSearch)))
-	mux.HandleFunc("/api/disposal/submit", handler.Recover(h.AuthMiddleware(h.HandleDisposalSubmit)))
-	mux.HandleFunc("/api/analysis/run", handler.Recover(h.AuthMiddleware(h.HandleAnalysisRun)))
-	mux.HandleFunc("/api/analysis/today", handler.Recover(h.AuthMiddleware(h.HandleAnalysisToday)))
-	mux.HandleFunc("/api/expiry/list", handler.Recover(h.AuthMiddleware(h.HandleExpiryList)))
-	mux.HandleFunc("/api/expiry/update-remark", handler.Recover(h.AuthMiddleware(h.HandleExpiryUpdateRemark)))
-	mux.HandleFunc("/api/spec/submit", handler.Recover(h.AuthMiddleware(h.HandleSpecSubmit)))
-	mux.HandleFunc("/api/spec/approve", handler.Recover(h.AuthMiddleware(h.HandleSpecApprove)))
-	mux.HandleFunc("/api/spec/reject", handler.Recover(h.AuthMiddleware(h.HandleSpecReject)))
-	mux.HandleFunc("/api/dashboard/summary", handler.Recover(h.AuthMiddleware(h.HandleDashboardSummary)))
-	mux.HandleFunc("/api/order/prf-number", handler.Recover(h.AuthMiddleware(h.HandleOrderPRFNumber)))
-	mux.HandleFunc("/api/order/generate", handler.Recover(h.AuthMiddleware(h.HandleOrderGenerate)))
+	mux := h.Routes()
 
 	ts := httptest.NewServer(mux)
 	return &testServer{Server: ts, db: database, cfg: cfg}
@@ -516,7 +490,7 @@ func TestGRNSubmit(t *testing.T) {
 		"doDate":          "2025-01-01",
 		"invNo":           "INV-001",
 		"poNo":            "PO-001",
-		"submissionToken": "test-token-001",
+		"submissionToken": fmt.Sprintf("test-token-%d", time.Now().UnixNano()),
 		"items": []map[string]any{
 			{"itemName": "Item X", "qtyPo": 10, "qtyDo": 10, "qtyInv": 10, "uom": "BOX", "batch": "B001", "status": "Match", "remarks": ""},
 		},
@@ -658,31 +632,20 @@ func TestDashboard(t *testing.T) {
 	assertStatus(t, resp, 200)
 }
 
-func TestOrderPRF(t *testing.T) {
+func TestOrderGenerate(t *testing.T) {
 	ts := newTestServer(t)
 	defer ts.Close()
 	defer ts.db.Close()
 
 	cookie := ts.login(t, "admin@pims.local", "admin123")
 
-	resp := ts.get("/api/order/prf-number", cookie)
-	assertStatus(t, resp, 200)
-	var prf struct {
-		PrfNo string `json:"prfNo"`
-	}
-	json.NewDecoder(resp.Body).Decode(&prf)
-	if prf.PrfNo == "" {
-		t.Errorf("prfNo: expected non-empty PRF number")
-	}
-
-	// Test order generate (PDF deferred, returns PRF number)
 	orderData := map[string]any{
 		"department": "Lab",
 		"items": []map[string]any{
 			{"stockId": "STK001", "itemName": "Item", "uom": "BOX", "cost": 5.0, "qty": 10, "supplier": "Sup1", "reason": "test"},
 		},
 	}
-	resp = ts.post("/api/order/generate", mustJSON(t, orderData), cookie)
+	resp := ts.post("/api/order/generate", mustJSON(t, orderData), cookie)
 	assertSuccess(t, resp)
 }
 
@@ -709,13 +672,17 @@ func TestSystemLogs(t *testing.T) {
 	defer ts.Close()
 	defer ts.db.Close()
 
+	count := func(q string) (n int) { ts.db.QueryRow(q).Scan(&n); return }
+	before := count("SELECT COUNT(*) FROM system_logs WHERE log_type = 'TEST'")
+	beforeErr := count("SELECT COUNT(*) FROM system_logs WHERE log_type = 'ERROR'")
 	db.LogEvent(ts.db, "TEST", "Integration test running", "test@test.com")
 	db.LogError(ts.db, "TestContext", fmt.Errorf("test error"), "test@test.com")
 
-	var count int
-	ts.db.QueryRow("SELECT COUNT(*) FROM system_logs WHERE log_type = 'TEST'").Scan(&count)
-	if count != 1 {
-		t.Errorf("expected 1 test log, got %d", count)
+	if got := count("SELECT COUNT(*) FROM system_logs WHERE log_type = 'TEST'") - before; got != 1 {
+		t.Errorf("expected 1 new test log, got %d", got)
+	}
+	if got := count("SELECT COUNT(*) FROM system_logs WHERE log_type = 'ERROR'") - beforeErr; got != 1 {
+		t.Errorf("expected 1 new error log, got %d", got)
 	}
 }
 

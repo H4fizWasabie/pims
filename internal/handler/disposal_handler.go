@@ -16,7 +16,7 @@ func (h *Handler) HandleDisposalSearch(w http.ResponseWriter, r *http.Request) {
 	dbConn, _ := h.databases(r.Context())
 	items, err := db.SearchDisposalBatches(dbConn, q)
 	if err != nil {
-		h.Error(w, 500, "Server Error: "+err.Error())
+		h.ServerError(w, r, err)
 		return
 	}
 	h.JSON(w, 200, items)
@@ -46,7 +46,7 @@ func (h *Handler) HandleDisposalSubmit(w http.ResponseWriter, r *http.Request) {
 		email = user.Email
 	}
 	if err := db.SubmitDisposal(h.DB, &data, email); err != nil {
-		h.Error(w, 500, "Server Error: "+err.Error())
+		h.ServerError(w, r, err)
 		return
 	}
 	h.Success(w, "Disposal logged. Stock quantity remains managed by Procura.")

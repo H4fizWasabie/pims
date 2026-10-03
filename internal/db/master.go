@@ -2,7 +2,9 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 	"strconv"
+	"strings"
 )
 
 type MasterItem struct {
@@ -44,18 +46,45 @@ func SearchMaster(d, stockDB *sql.DB, query string) ([]MasterItem, error) {
 	return scanMasterItems(d, stockDB, rows)
 }
 
+// ValidationError marks bad caller input (as opposed to a DB failure).
+type ValidationError string
+
+func (e ValidationError) Error() string { return string(e) }
+
+// ReplaceMasterData swaps the whole item master. Every row is validated
+// first so a bad upload can never leave the master half-wiped or emptied.
 func ReplaceMasterData(d *sql.DB, items [][]string) error {
+	if len(items) == 0 {
+		return ValidationError("Upload is empty; refusing to wipe the item master.")
+	}
+	costs := make([]float64, len(items))
+	seen := make(map[string]bool, len(items))
+	for i, row := range items {
+		n := i + 1
+		if len(row) < 7 {
+			return ValidationError(fmt.Sprintf("Row %d has %d columns, expected 7.", n, len(row)))
+		}
+		if row[0] == "" || row[1] == "" {
+			return ValidationError(fmt.Sprintf("Row %d is missing the stock ID or item name.", n))
+		}
+		if seen[row[0]] {
+			return ValidationError(fmt.Sprintf("Row %d repeats stock ID %q.", n, row[0]))
+		}
+		seen[row[0]] = true
+		c, err := strconv.ParseFloat(strings.TrimSpace(row[4]), 64)
+		if err != nil && strings.TrimSpace(row[4]) != "" {
+			return ValidationError(fmt.Sprintf("Row %d has an invalid cost %q.", n, row[4]))
+		}
+		costs[i] = c
+	}
+
 	tx, err := d.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-
 	if _, err := tx.Exec(`DELETE FROM master_items`); err != nil {
 		return err
-	}
-	if len(items) == 0 {
-		return tx.Commit()
 	}
 	stmt, err := tx.Prepare(
 		`INSERT INTO master_items (stock_id, item_name, uom, item_group, cost, last_supplier, product_status)
@@ -64,13 +93,8 @@ func ReplaceMasterData(d *sql.DB, items [][]string) error {
 		return err
 	}
 	defer stmt.Close()
-	for _, row := range items {
-		if len(row) < 7 {
-			continue
-		}
-		cost := parseFloat(row[4])
-		_, err = stmt.Exec(row[0], row[1], row[2], row[3], cost, row[5], row[6])
-		if err != nil {
+	for i, row := range items {
+		if _, err := stmt.Exec(row[0], row[1], row[2], row[3], costs[i], row[5], row[6]); err != nil {
 			return err
 		}
 	}
@@ -112,9 +136,4 @@ func scanMasterItems(pimsDB, procuraDB *sql.DB, rows *sql.Rows) ([]MasterItem, e
 		items[i].CurrentStock = stocks[items[i].StockID]
 	}
 	return items, nil
-}
-
-func parseFloat(s string) float64 {
-	f, _ := strconv.ParseFloat(s, 64)
-	return f
 }

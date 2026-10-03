@@ -1,7 +1,8 @@
 package handler
 
 import (
-	"encoding/json"
+	"errors"
+	"log"
 	"net/http"
 
 	"github.com/H4fizWasabie/pims/internal/auth"
@@ -25,9 +26,9 @@ func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, maxBody)
 	var req loginRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.Error(w, 400, "Invalid request body")
+	if !h.decode(w, r, &req) {
 		return
 	}
 	token, err := auth.Login(h.DB, req.Email, req.Password)
@@ -45,8 +46,15 @@ func (h *Handler) HandleDemoLogin(w http.ResponseWriter, r *http.Request) {
 		h.Error(w, 405, "Method not allowed")
 		return
 	}
+	ip := getClientIP(r)
+	if !demoLimiter.allow(ip) {
+		h.Error(w, 429, "Too many demo sessions. Please wait 1 minute.")
+		return
+	}
+	demoLimiter.record(ip)
 	token, err := db.CreateDemoSession(h.DB)
 	if err != nil {
+		log.Printf("demo session: %v", err)
 		h.Error(w, 500, "Demo unavailable, try again")
 		return
 	}
@@ -67,8 +75,7 @@ func (h *Handler) HandleChangePassword(w http.ResponseWriter, r *http.Request) {
 		OldPassword string `json:"oldPassword"`
 		NewPassword string `json:"newPassword"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.Error(w, 400, "Invalid request")
+	if !h.decode(w, r, &req) {
 		return
 	}
 	user := userFromContext(r.Context())
@@ -76,12 +83,17 @@ func (h *Handler) HandleChangePassword(w http.ResponseWriter, r *http.Request) {
 		h.Error(w, 401, "Authentication required")
 		return
 	}
-	if len(req.NewPassword) < 6 {
-		h.Error(w, 400, "New password must be at least 6 characters")
+	if !validPassword(req.NewPassword) {
+		h.Error(w, 400, passwordRule)
 		return
 	}
-	if err := db.ChangePassword(h.DB, user.Email, req.OldPassword, req.NewPassword); err != nil {
-		h.Error(w, 400, "Current password is incorrect")
+	token, _ := getSessionToken(r)
+	if err := db.ChangePassword(h.DB, user.Email, req.OldPassword, req.NewPassword, token); err != nil {
+		if errors.Is(err, db.ErrWrongPassword) {
+			h.Error(w, 400, "Current password is incorrect")
+		} else {
+			h.ServerError(w, r, err)
+		}
 		return
 	}
 	h.Success(w, "Password changed")
@@ -105,3 +117,8 @@ func (h *Handler) HandleMe(w http.ResponseWriter, r *http.Request) {
 		"demo":  user.IsDemo,
 	})
 }
+
+const passwordRule = "Password must be 8-72 characters"
+
+// bcrypt ignores everything past 72 bytes.
+func validPassword(p string) bool { return len(p) >= 8 && len(p) <= 72 }

@@ -1,10 +1,15 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"io/fs"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/H4fizWasabie/pims/internal/config"
 	"github.com/H4fizWasabie/pims/internal/db"
@@ -33,6 +38,23 @@ func main() {
 		log.Fatalf("migrate: %v", err)
 	}
 
+	if cfg.AdminEmail != "" && cfg.AdminPassword != "" {
+		if err := db.EnsureAdmin(database, cfg.AdminEmail, cfg.AdminPassword); err != nil {
+			log.Fatalf("bootstrap admin: %v", err)
+		}
+	}
+	if db.HasDefaultAdmin(database) {
+		log.Printf("WARNING: admin@pims.local still has the default password. Change it or delete the user.")
+	}
+	go func() {
+		for {
+			if err := db.PurgeExpiredSessions(database); err != nil {
+				log.Printf("purge sessions: %v", err)
+			}
+			time.Sleep(10 * time.Minute)
+		}
+	}()
+
 	// Demo sessions read fabricated data from an isolated schema, never
 	// the real item master / Procura stock.
 	if err := db.EnsureDemoSchema(database); err != nil {
@@ -47,78 +69,27 @@ func main() {
 	staticFS, _ := fs.Sub(staticFiles, "static")
 	h := &handler.Handler{DB: database, StockDB: stockDatabase, DemoDB: demoDatabase, Cfg: cfg, StaticFS: staticFS}
 
-	mux := http.NewServeMux()
-
-	// Auth
-	mux.HandleFunc("/api/auth/login", handler.Recover(h.HandleLogin))
-	mux.HandleFunc("/api/auth/demo", handler.Recover(h.HandleDemoLogin))
-	mux.HandleFunc("/api/auth/logout", handler.Recover(h.HandleLogout))
-	mux.HandleFunc("/api/auth/me", handler.Recover(h.HandleMe))
-	mux.HandleFunc("/api/auth/change-password", handler.Recover(h.AuthMiddleware(h.HandleChangePassword)))
-
-	// Master
-	mux.HandleFunc("/api/master/chunk", handler.Recover(h.AuthMiddleware(h.HandleMasterChunk)))
-	mux.HandleFunc("/api/master/search", handler.Recover(h.AuthMiddleware(h.HandleMasterSearch)))
-	mux.HandleFunc("/api/master/replace", handler.Recover(h.AdminMiddleware(h.HandleMasterReplace)))
-	mux.HandleFunc("/api/master/all", handler.Recover(h.AuthMiddleware(h.HandleMasterAll)))
-
-	// Inventory
-	mux.HandleFunc("/api/inventory/chunk", handler.Recover(h.AuthMiddleware(h.HandleInventoryChunk)))
-	mux.HandleFunc("/api/inventory/replace", handler.Recover(h.AdminMiddleware(h.HandleInventoryReplace)))
-
-	// Indents
-	mux.HandleFunc("/api/indent/master-data", handler.Recover(h.AuthMiddleware(h.HandleIndentMasterData)))
-	mux.HandleFunc("/api/indent/submit", handler.Recover(h.AuthMiddleware(h.HandleIndentSubmit)))
-	mux.HandleFunc("/api/indent/approve", handler.Recover(h.AuthMiddleware(h.HandleIndentApprove)))
-	mux.HandleFunc("/api/indent/reject", handler.Recover(h.AuthMiddleware(h.HandleIndentReject)))
-
-	// GRN
-	mux.HandleFunc("/api/grn/master-data", handler.Recover(h.AuthMiddleware(h.HandleGRNMasterData)))
-	mux.HandleFunc("/api/grn/submit", handler.Recover(h.AuthMiddleware(h.HandleGRNSubmit)))
-
-	// Stock Take
-	mux.HandleFunc("/api/stocktake/submit", handler.Recover(h.AuthMiddleware(h.HandleStockTakeSubmit)))
-	mux.HandleFunc("/api/stocktake/today", handler.Recover(h.AuthMiddleware(h.HandleStockTakeToday)))
-	mux.HandleFunc("/api/stocktake/history", handler.Recover(h.AuthMiddleware(h.HandleStockTakeHistory)))
-	mux.HandleFunc("/api/stocktake/analyze-image", handler.Recover(h.AuthMiddleware(h.HandleStockTakeAnalyzeImage)))
-
-	// Disposal
-	mux.HandleFunc("/api/disposal/search", handler.Recover(h.AuthMiddleware(h.HandleDisposalSearch)))
-	mux.HandleFunc("/api/disposal/submit", handler.Recover(h.AuthMiddleware(h.HandleDisposalSubmit)))
-
-	// Analysis
-	mux.HandleFunc("/api/analysis/run", handler.Recover(h.AuthMiddleware(h.HandleAnalysisRun)))
-	mux.HandleFunc("/api/analysis/today", handler.Recover(h.AuthMiddleware(h.HandleAnalysisToday)))
-
-	// Expiry
-	mux.HandleFunc("/api/expiry/list", handler.Recover(h.AuthMiddleware(h.HandleExpiryList)))
-	mux.HandleFunc("/api/expiry/update-remark", handler.Recover(h.AuthMiddleware(h.HandleExpiryUpdateRemark)))
-
-	// Specs
-	mux.HandleFunc("/api/spec/submit", handler.Recover(h.AuthMiddleware(h.HandleSpecSubmit)))
-	mux.HandleFunc("/api/spec/approve", handler.Recover(h.AuthMiddleware(h.HandleSpecApprove)))
-	mux.HandleFunc("/api/spec/reject", handler.Recover(h.AuthMiddleware(h.HandleSpecReject)))
-
-	// Dashboard
-	mux.HandleFunc("/api/dashboard/summary", handler.Recover(h.AuthMiddleware(h.HandleDashboardSummary)))
-
-	// Users (admin only)
-	mux.HandleFunc("/api/users", handler.Recover(h.AdminMiddleware(h.HandleUsersList)))
-	mux.HandleFunc("/api/users/create", handler.Recover(h.AdminMiddleware(h.HandleUsersCreate)))
-	mux.HandleFunc("/api/users/delete", handler.Recover(h.AdminMiddleware(h.HandleUsersDelete)))
-
-	// Order
-	mux.HandleFunc("/api/order/prf-number", handler.Recover(h.AuthMiddleware(h.HandleOrderPRFNumber)))
-	mux.HandleFunc("/api/order/generate", handler.Recover(h.AuthMiddleware(h.HandleOrderGenerate)))
-	mux.HandleFunc("/api/order/list", handler.Recover(h.AuthMiddleware(h.HandleOrderList)))
-	mux.HandleFunc("/api/order/tick", handler.Recover(h.AuthMiddleware(h.HandleOrderTick)))
-
-	// SPA
-	mux.HandleFunc("/", handler.Recover(h.HandleSPA))
+	mux := h.Routes()
 
 	addr := ":" + cfg.Port
 	log.Printf("PIMS starting on %s", addr)
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       60 * time.Second, // photos/spreadsheets upload as JSON
+		WriteTimeout:      90 * time.Second, // OCR calls can take ~45s
+		IdleTimeout:       120 * time.Second,
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	go func() {
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		srv.Shutdown(shutdownCtx) // let in-flight requests finish on restart
+	}()
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("server: %v", err)
 	}
 }

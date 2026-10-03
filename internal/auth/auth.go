@@ -43,10 +43,12 @@ func SetSessionCookie(w http.ResponseWriter, token string) {
 
 func ClearSessionCookie(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{
-		Name:   "pims_session",
-		Value:  "",
-		Path:   "/",
-		Secure: true,
-		MaxAge: -1,
+		Name:     "pims_session",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   -1,
 	})
 }

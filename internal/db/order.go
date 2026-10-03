@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 	"strconv"
 )
 
@@ -17,40 +18,46 @@ type OrderItem struct {
 }
 
 type OrderRow struct {
-	ID             int        `json:"id"`
-	PRFNo          string     `json:"prfNo"`
-	Department     string     `json:"department"`
-	ItemName       string     `json:"itemName"`
-	StockID        string     `json:"stockId"`
-	UOM            string     `json:"uom"`
-	Qty            float64    `json:"qty"`
-	UnitCost       float64    `json:"unitCost"`
-	TotalCost      float64    `json:"totalCost"`
-	Reason         string     `json:"reason"`
-	OrderedAt      string     `json:"orderedAt"`
-	OrderTickAt    *string    `json:"orderTickAt"`
-	PaymentTickAt  *string    `json:"paymentTickAt"`
-	ReceivedTickAt *string    `json:"receivedTickAt"`
+	ID             int     `json:"id"`
+	PRFNo          string  `json:"prfNo"`
+	Department     string  `json:"department"`
+	ItemName       string  `json:"itemName"`
+	StockID        string  `json:"stockId"`
+	UOM            string  `json:"uom"`
+	Qty            float64 `json:"qty"`
+	UnitCost       float64 `json:"unitCost"`
+	TotalCost      float64 `json:"totalCost"`
+	Reason         string  `json:"reason"`
+	OrderedAt      string  `json:"orderedAt"`
+	OrderTickAt    *string `json:"orderTickAt"`
+	PaymentTickAt  *string `json:"paymentTickAt"`
+	ReceivedTickAt *string `json:"receivedTickAt"`
 }
 
-func SaveOrders(d *sql.DB, prfNo, department string, items []OrderItem) error {
+// SaveOrders stores the lines under one new PRF number and returns it.
+// Line totals are recomputed here; the client's total is never trusted.
+func SaveOrders(d *sql.DB, department string, items []OrderItem) (string, error) {
 	tx, err := d.Begin()
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer tx.Rollback()
 
+	prfNo, err := nextNumber(tx, "PRF")
+	if err != nil {
+		return "", err
+	}
 	for _, item := range items {
 		_, err := tx.Exec(
 			`INSERT INTO orders (prf_no, department, item_name, stock_id, uom, qty, unit_cost, total_cost, reason)
 			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-			prfNo, department, item.ItemName, item.StockID, item.UOM, item.Qty, item.Cost, item.Total, item.Reason,
+			prfNo, department, item.ItemName, item.StockID, item.UOM, item.Qty, item.Cost, item.Qty*item.Cost, item.Reason,
 		)
 		if err != nil {
-			return err
+			return "", err
 		}
 	}
-	return tx.Commit()
+	return prfNo, tx.Commit()
 }
 
 func GetOrders(d *sql.DB, department, dateFrom, dateTo string) ([]OrderRow, error) {
@@ -94,9 +101,15 @@ func GetOrders(d *sql.DB, department, dateFrom, dateTo string) ([]OrderRow, erro
 			&r.Qty, &r.UnitCost, &r.TotalCost, &r.Reason, &r.OrderedAt, &ot, &pt, &rt); err != nil {
 			return nil, err
 		}
-		if ot.Valid { r.OrderTickAt = &ot.String }
-		if pt.Valid { r.PaymentTickAt = &pt.String }
-		if rt.Valid { r.ReceivedTickAt = &rt.String }
+		if ot.Valid {
+			r.OrderTickAt = &ot.String
+		}
+		if pt.Valid {
+			r.PaymentTickAt = &pt.String
+		}
+		if rt.Valid {
+			r.ReceivedTickAt = &rt.String
+		}
 		items = append(items, r)
 	}
 	return items, rows.Err()
@@ -112,7 +125,7 @@ func UpdateOrderTick(d *sql.DB, id int, tickField string, force bool) error {
 	case "received":
 		col = "received_tick_at"
 	default:
-		return nil
+		return fmt.Errorf("unknown tick field %q", tickField)
 	}
 	if force {
 		_, err := d.Exec("UPDATE orders SET "+col+" = NOW() WHERE id = $1", id)

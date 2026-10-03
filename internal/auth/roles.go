@@ -1,43 +1,23 @@
 package auth
 
-import "github.com/H4fizWasabie/pims/internal/config"
+import (
+	"slices"
+	"strings"
 
-func IsAdmin(cfg *config.Config, email string) bool {
-	return contains(cfg.MasterAdmins, email)
-}
+	"github.com/H4fizWasabie/pims/internal/config"
+)
+
+func IsAdmin(cfg *config.Config, email string) bool { return Contains(cfg.MasterAdmins, email) }
 
 func IsIndentApprover(cfg *config.Config, email string) bool {
-	return contains(cfg.IndentApprovers, email)
+	return Contains(cfg.IndentApprovers, email)
 }
 
 func IsSpecApprover(cfg *config.Config, email string) bool {
-	return contains(cfg.SpecApprovers, email)
+	return Contains(cfg.SpecApprovers, email)
 }
 
-func contains(list []string, s string) bool {
-	for _, v := range list {
-		if equalsFold(v, s) {
-			return true
-		}
-	}
-	return false
-}
-
-func equalsFold(a, b string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := 0; i < len(a); i++ {
-		ca, cb := a[i], b[i]
-		if ca >= 'A' && ca <= 'Z' {
-			ca += 32
-		}
-		if cb >= 'A' && cb <= 'Z' {
-			cb += 32
-		}
-		if ca != cb {
-			return false
-		}
-	}
-	return true
+// Contains reports whether list has s, ignoring case.
+func Contains(list []string, s string) bool {
+	return slices.ContainsFunc(list, func(v string) bool { return strings.EqualFold(v, s) })
 }

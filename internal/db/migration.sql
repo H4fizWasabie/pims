@@ -148,12 +148,6 @@ CREATE TABLE IF NOT EXISTS id_counters (
     counter INTEGER DEFAULT 1
 );
 
--- Default admin user (password: admin123)
--- bcrypt hash for 'admin123'
-INSERT INTO users (email, password_hash, role)
-VALUES ('admin@pims.local', '$2a$10$nXrtCI3rOJSiycc3unq0w.rEnlt7CIzUpy/zqofVmq1Fni6RQUpRW', 'admin')
-ON CONFLICT (email) DO NOTHING;
-
 CREATE TABLE IF NOT EXISTS system_logs (
     id SERIAL PRIMARY KEY,
     timestamp TIMESTAMPTZ DEFAULT NOW(),
@@ -182,3 +176,8 @@ CREATE TABLE IF NOT EXISTS orders (
 );
 CREATE INDEX IF NOT EXISTS idx_orders_department ON orders(department);
 CREATE INDEX IF NOT EXISTS idx_orders_prf_no ON orders(prf_no);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_expiry_date ON expiry_tracking(expiry_date);
+CREATE INDEX IF NOT EXISTS idx_stock_takes_location ON stock_takes(location);
+CREATE INDEX IF NOT EXISTS idx_orders_ordered_at ON orders(ordered_at);

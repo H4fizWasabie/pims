@@ -16,7 +16,7 @@ func (h *Handler) HandleInventoryChunk(w http.ResponseWriter, r *http.Request) {
 	dbConn, stockDB := h.databases(r.Context())
 	items, err := db.GetInventoryChunk(dbConn, stockDB, page, pageSize)
 	if err != nil {
-		h.Error(w, 500, "Server Error: "+err.Error())
+		h.ServerError(w, r, err)
 		return
 	}
 	h.JSON(w, 200, items)

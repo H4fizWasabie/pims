@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -17,7 +18,7 @@ func (h *Handler) HandleMasterChunk(w http.ResponseWriter, r *http.Request) {
 	dbConn, stockDB := h.databases(r.Context())
 	items, err := db.GetMasterChunk(dbConn, stockDB, page, pageSize)
 	if err != nil {
-		h.Error(w, 500, "Server Error: "+err.Error())
+		h.ServerError(w, r, err)
 		return
 	}
 	h.JSON(w, 200, items)
@@ -32,7 +33,7 @@ func (h *Handler) HandleMasterSearch(w http.ResponseWriter, r *http.Request) {
 	dbConn, stockDB := h.databases(r.Context())
 	items, err := db.SearchMaster(dbConn, stockDB, q)
 	if err != nil {
-		h.Error(w, 500, "Server Error: "+err.Error())
+		h.ServerError(w, r, err)
 		return
 	}
 	h.JSON(w, 200, items)
@@ -45,7 +46,12 @@ func (h *Handler) HandleMasterReplace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := db.ReplaceMasterData(h.DB, data); err != nil {
-		h.Error(w, 500, "Server Error: "+err.Error())
+		var ve db.ValidationError
+		if errors.As(err, &ve) {
+			h.Error(w, 400, ve.Error())
+		} else {
+			h.ServerError(w, r, err)
+		}
 		return
 	}
 	h.Success(w, "Successfully replaced database.")
@@ -55,7 +61,7 @@ func (h *Handler) HandleMasterAll(w http.ResponseWriter, r *http.Request) {
 	dbConn, stockDB := h.databases(r.Context())
 	items, err := db.GetAllMasterItems(dbConn, stockDB)
 	if err != nil {
-		h.Error(w, 500, "Server Error: "+err.Error())
+		h.ServerError(w, r, err)
 		return
 	}
 	h.JSON(w, 200, items)
