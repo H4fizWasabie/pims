@@ -110,6 +110,8 @@
 #ux-dialog .ux-actions{display:flex;gap:8px;justify-content:flex-end}
 #ux-dialog button{padding:9px 16px;border-radius:6px;border:1px solid #d1d5db;background:#fff;cursor:pointer;font-weight:600}
 #ux-dialog button.ux-ok{background:var(--primary,#2563eb);border-color:transparent;color:#fff}
+[aria-invalid="true"]{border-color:#dc2626 !important;outline:none;box-shadow:0 0 0 2px rgba(220,38,38,.15)}
+.field-msg{color:#dc2626;font-size:.8rem;margin:4px 0 8px;line-height:1.3}
 .load-error{padding:18px;text-align:center;color:#6b7280}
 .load-error button{margin-top:8px;padding:8px 14px;border-radius:6px;border:1px solid #d1d5db;background:#fff;cursor:pointer;font-weight:600}
 #login_notice{background:#fef3c7;color:#92400e;border-radius:6px;padding:10px;font-size:.85rem;margin-bottom:12px;display:none}
@@ -859,8 +861,8 @@ var Draft = {
     const stockId = document.getElementById('lab_stockId').value;
     const qty = parseFloat(document.getElementById('lab_qtyInput').value);
     
-    if(!stockId) { toast("Select item.", "warn"); return; }
-    if(!qty || qty <= 0) { toast("Invalid quantity.", "warn"); return; }
+    if(!stockId) { fieldError(document.getElementById('lab_searchInput'), "Search for an item and pick it from the list."); return; }
+    if(!qty || qty <= 0) { fieldError(document.getElementById('lab_qtyInput'), "Enter a quantity above 0."); return; }
 
     lab_cart.push({
       stockId: stockId,
@@ -1174,8 +1176,8 @@ var Draft = {
     const stockId = document.getElementById('pharm_stockId').value;
     const qty = parseFloat(document.getElementById('pharm_qtyInput').value);
     
-    if(!stockId) { toast("Select item.", "warn"); return; }
-    if(!qty || qty <= 0) { toast("Invalid quantity.", "warn"); return; }
+    if(!stockId) { fieldError(document.getElementById('pharm_searchInput'), "Search for an item and pick it from the list."); return; }
+    if(!qty || qty <= 0) { fieldError(document.getElementById('pharm_qtyInput'), "Enter a quantity above 0."); return; }
 
     pharm_cart.push({
       stockId: stockId,
@@ -1380,8 +1382,8 @@ var Draft = {
   function med_addItem() {
     const stockId = document.getElementById('med_stockId').value;
     const qty = parseFloat(document.getElementById('med_qtyInput').value);
-    if(!stockId) { toast("Select item.", "warn"); return; }
-    if(!qty || qty <= 0) { toast("Invalid quantity.", "warn"); return; }
+    if(!stockId) { fieldError(document.getElementById('med_searchInput'), "Search for an item and pick it from the list."); return; }
+    if(!qty || qty <= 0) { fieldError(document.getElementById('med_qtyInput'), "Enter a quantity above 0."); return; }
     med_cart.push({ stockId, itemName: document.getElementById('med_itemName').value, uom: document.getElementById('med_uom').value, cost: parseFloat(document.getElementById('med_cost').value), supplier: document.getElementById('med_supplier').value, qty, reason: document.getElementById('med_reasonInput').value, total: qty * parseFloat(document.getElementById('med_cost').value) });
     med_renderCart();
     med_searchInput.value = ''; document.getElementById('med_qtyInput').value = ''; document.getElementById('med_reasonInput').value = ''; document.getElementById('med_stockId').value = ''; document.getElementById('med_stockDisplay').value = '';
@@ -1543,8 +1545,8 @@ var Draft = {
   function surg_addItem() {
     const stockId = document.getElementById('surg_stockId').value;
     const qty = parseFloat(document.getElementById('surg_qtyInput').value);
-    if(!stockId) { toast("Select item.", "warn"); return; }
-    if(!qty || qty <= 0) { toast("Invalid quantity.", "warn"); return; }
+    if(!stockId) { fieldError(document.getElementById('surg_searchInput'), "Search for an item and pick it from the list."); return; }
+    if(!qty || qty <= 0) { fieldError(document.getElementById('surg_qtyInput'), "Enter a quantity above 0."); return; }
     surg_cart.push({ stockId, itemName: document.getElementById('surg_itemName').value, uom: document.getElementById('surg_uom').value, cost: parseFloat(document.getElementById('surg_cost').value), supplier: document.getElementById('surg_supplier').value, qty, reason: document.getElementById('surg_reasonInput').value, total: qty * parseFloat(document.getElementById('surg_cost').value) });
     surg_renderCart();
     surg_searchInput.value = ''; document.getElementById('surg_qtyInput').value = ''; document.getElementById('surg_reasonInput').value = ''; document.getElementById('surg_stockId').value = ''; document.getElementById('surg_stockDisplay').value = '';
@@ -1792,8 +1794,8 @@ var Draft = {
 
   function indent_addToCart() {
     const qty = parseFloat(document.getElementById('indent_qtyInput').value);
-    if (!indent_selectedItem) { toast("Please search and select an item first.", "warn"); return; }
-    if (!qty || qty <= 0) { toast("Please enter a valid quantity.", "warn"); return; }
+    if (!indent_selectedItem) { fieldError(document.getElementById('indent_searchInput'), "Search for an item and pick it from the list."); return; }
+    if (!qty || qty <= 0) { fieldError(document.getElementById('indent_qtyInput'), "Enter a quantity above 0."); return; }
 
     indent_cart.push({
       stockId: indent_selectedItem.stockId, itemName: indent_selectedItem.itemName,
@@ -1832,7 +1834,7 @@ var Draft = {
 
   async function indent_submitFinal() {
     const requester = document.getElementById('indent_requesterSelect').value;
-    if (!requester) { toast("Please select your Department.", "warn"); document.getElementById('indent_requesterSelect').focus(); return; }
+    if (!requester) { fieldError(document.getElementById('indent_requesterSelect'), "Choose your department."); return; }
     if(!await confirmDialog(`Submit request for ${indent_cart.length} items?`)) return;
 
     const btn = document.getElementById('indent_btnFinalSubmit');
@@ -1982,8 +1984,11 @@ var Draft = {
     const specs = document.getElementById('spec_specs').value;
     const just = document.getElementById('spec_justification').value;
     
-    if(!name || !dept || !cat || !specs || !just) {
-      toast("Please fill in all required fields (Name, Dept, Category, Specs, Justification).", "warn");
+    const missing = [['spec_itemName', name, 'Enter the item name.'], ['spec_department', dept, 'Choose a department.'], ['spec_category', cat, 'Choose a category.'],
+      ['spec_specs', specs, 'Describe the specification.'], ['spec_justification', just, 'Explain why this item is needed.']]
+      .filter(function(f) { return !f[1]; }).map(function(f) { return [document.getElementById(f[0]), f[2]]; });
+    if (missing.length) {
+      fieldErrors(missing);
       return;
     }
 
@@ -2205,7 +2210,12 @@ var Draft = {
     const batch = document.getElementById('grn_batchNo').value;
     const uom = document.getElementById('grn_itemUom').value || '-';
 
-    if(!name || !po || !doQ || !inv) { toast("Please fill all Qty fields.", "warn"); return; }
+    if(!name || !po || !doQ || !inv) {
+      fieldErrors([[document.getElementById('grn_searchItem'), 'Search for an item and pick it from the list.'], [document.getElementById('grn_qtyPo'), 'Enter the PO quantity.'],
+        [document.getElementById('grn_qtyDo'), 'Enter the DO quantity.'], [document.getElementById('grn_qtyInv'), 'Enter the invoice quantity.']]
+        .filter(function(pr, i) { return !([name, po, doQ, inv][i]); }));
+      return;
+    }
 
     const isMatch = (po === doQ && doQ === inv);
     const status = isMatch ? 'Match' : 'Mismatch';
@@ -2252,7 +2262,7 @@ var Draft = {
     if(GRN_CART_ITEMS.length === 0) { toast("No items to submit.", "warn"); return; }
     
     const supplier = document.getElementById('grn_supplierInput').value;
-    if(!supplier) { toast("Please enter Supplier Name.", "warn"); return; }
+    if(!supplier) { fieldError(document.getElementById('grn_supplierInput'), "Enter the supplier name."); return; }
 
     const btn = document.getElementById('grn_btnSubmit');
     const oldText = btn.innerHTML;
@@ -2439,9 +2449,9 @@ var Draft = {
     const qty = document.getElementById('disp_qtyInput').value;
     const reason = document.getElementById('disp_reasonInput').value;
 
-    if(!stockId) { toast("Please search and select a batch.", "warn"); return; }
-    if(!qty || qty <= 0) { toast("Please enter a valid quantity.", "warn"); return; }
-    if(!reason) { toast("Please select a reason.", "warn"); return; }
+    if(!stockId) { fieldError(document.getElementById('disp_searchInput'), "Search for a batch and pick it from the list."); return; }
+    if(!qty || qty <= 0) { fieldError(document.getElementById('disp_qtyInput'), "Enter a quantity above 0."); return; }
+    if(!reason) { fieldError(document.getElementById('disp_reasonInput'), "Choose a reason."); return; }
 
     if(!await confirmDialog("⚠️ CONFIRM DISPOSAL?\n\nThis logs the disposal. Stock quantity remains managed by Procura.")) return;
 
@@ -2629,6 +2639,15 @@ var Draft = {
     border-radius: 50%;
   }
 
+  /* FILTERS */
+  .exp-filters { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:16px; }
+  .exp-search { flex:1 1 220px; min-width:180px; padding:10px 12px; border:1px solid #d1d5db; border-radius:8px; font-size:.95rem; }
+  .exp-chips { display:flex; gap:6px; flex-wrap:wrap; }
+  .exp-chip { border:1px solid #d1d5db; background:#fff; border-radius:999px; padding:6px 12px; font-size:.82rem; font-weight:600; cursor:pointer; color:#374151; }
+  .exp-chip .n { margin-left:6px; opacity:.7; font-weight:700; }
+  .exp-chip[aria-pressed="true"] { background:#1f2937; border-color:#1f2937; color:#fff; }
+  .exp-chip:focus-visible, .exp-search:focus-visible { outline:2px solid #2563eb; outline-offset:2px; }
+
   /* LIST */
   .exp-tracking-list {
     height: 70vh;
@@ -2763,6 +2782,18 @@ var Draft = {
     </div>
   </div>
 
+  <div class="exp-filters">
+    <input id="exp_search" class="exp-search" type="search" placeholder="Search item, stock ID or batch" aria-label="Search expiry batches" autocomplete="off">
+    <div id="exp_chips" class="exp-chips" role="group" aria-label="Filter by expiry level">
+      <button type="button" class="exp-chip" data-band="" aria-pressed="true">All<span class="n"></span></button>
+      <button type="button" class="exp-chip" data-band="expired" aria-pressed="false">Expired<span class="n"></span></button>
+      <button type="button" class="exp-chip" data-band="critical" aria-pressed="false">&le; 30 days<span class="n"></span></button>
+      <button type="button" class="exp-chip" data-band="action" aria-pressed="false">&le; 3 months<span class="n"></span></button>
+      <button type="button" class="exp-chip" data-band="warning" aria-pressed="false">&le; 6 months<span class="n"></span></button>
+      <button type="button" class="exp-chip" data-band="alert" aria-pressed="false">&le; 1 year<span class="n"></span></button>
+    </div>
+  </div>
+
   <div class="exp-tracking-list-wrapper">
     <div class="exp-header-row">
       <div></div>
@@ -2793,15 +2824,40 @@ var Draft = {
         let exp_currentPage = 1;
         const exp_pageSize = 20;
         
+        let exp_band = '', exp_q = '', exp_reqId = 0;
+
         function exp_loadData(page) {
           exp_currentPage = page || 1;
-          api("GET", "/api/expiry/list?page=" + exp_currentPage + "&pageSize=" + exp_pageSize).then(exp_renderList).catch(exp_renderError);
+          const id = ++exp_reqId; // ignore answers that arrive after a newer filter was applied
+          const qs = "page=" + exp_currentPage + "&pageSize=" + exp_pageSize +
+            (exp_band ? "&band=" + exp_band : "") + (exp_q ? "&q=" + encodeURIComponent(exp_q) : "");
+          api("GET", "/api/expiry/list?" + qs).then(function(r) { if (id === exp_reqId) exp_renderList(r); })
+            .catch(function(e) { if (id === exp_reqId && !e.silent) exp_renderError(e); });
         }
 
-        function exp_renderError() {
-          document.getElementById('exp_list').innerHTML = '<div class="exp-loader" style="color:#b91c1c;">Unable to load expiry data. Reopen this tab to retry.</div>';
+        function exp_renderError(e) {
           document.getElementById('exp_pagination').style.display = 'none';
+          loadError(document.getElementById('exp_list'), "Couldn't load expiry data. " + ((e && e.message) || ''), function() { exp_loadData(exp_currentPage); });
         }
+
+        function exp_updateChips(counts) {
+          document.querySelectorAll('#exp_chips .exp-chip').forEach(function(c) {
+            const key = c.dataset.band || 'all';
+            c.querySelector('.n').textContent = counts ? (counts[key] || 0) : '';
+            c.setAttribute('aria-pressed', String(c.dataset.band === exp_band));
+          });
+        }
+
+        document.getElementById('exp_chips').addEventListener('click', function(e) {
+          const chip = e.target.closest('.exp-chip'); if (!chip) return;
+          exp_band = chip.dataset.band; exp_loadData(1);
+        });
+        let exp_searchTimer = null;
+        document.getElementById('exp_search').addEventListener('input', function() {
+          clearTimeout(exp_searchTimer);
+          const v = this.value.trim();
+          exp_searchTimer = setTimeout(function() { exp_q = v; exp_loadData(1); }, 300);
+        });
 
         function exp_changePage(delta) {
           exp_loadData(exp_currentPage + delta);
@@ -2812,10 +2868,12 @@ var Draft = {
           window.exp_currentData = items;
           const list = document.getElementById('exp_list'); list.innerHTML = '';
           
-          if (!items || items.length === 0) { 
-            list.innerHTML = '<div class="exp-loader">All stock is healthy (> 1 year).</div>'; 
+          exp_updateChips(result.counts);
+          if (!items || items.length === 0) {
+            const filtered = exp_band || exp_q;
+            list.innerHTML = '<div class="exp-loader">' + (filtered ? 'No batches match this filter.' : 'All stock is healthy (> 1 year).') + '</div>';
             document.getElementById('exp_pagination').style.display = 'none';
-            return; 
+            return;
           }
 
           // Update pagination controls
@@ -2857,7 +2915,11 @@ var Draft = {
 
         async function exp_markExpired(rowIndex) {
           const remark= await promptDialog("Enter remark (e.g., 'Disposed'):", "Disposed");
-          if (remark) { api("POST", "/api/expiry/update-remark", {rowIndex: rowIndex, remark: "EXPIRED: " + remark}).then(() => { exp_loadData(); }); }
+          if (remark) {
+            api("POST", "/api/expiry/update-remark", {rowIndex: rowIndex, remark: "EXPIRED: " + remark})
+              .then(() => { toast("Remark saved", "success"); exp_loadData(exp_currentPage); })
+              .catch(e => toast(errMsg(e), "error"));
+          }
         }
 
       </script>
@@ -3373,6 +3435,30 @@ function restoreDrafts() {
     if (saved && !sp[3]().length) { sp[2](saved); restored.push(sp[1] + ' (' + saved.length + ')'); }
   });
   if (restored.length) toast('Restored your unsent work: ' + restored.join(', ') + '.', 'info');
+}
+
+// fieldErrors([[el, msg], ...]): show messages under the offending fields, focus the first.
+// Each message clears itself as soon as the user edits that field.
+function fieldErrors(pairs) {
+  pairs.forEach(function(pr, i) {
+    var el = pr[0];
+    clearFieldError(el);
+    el.setAttribute('aria-invalid', 'true');
+    var m = document.createElement('div');
+    m.className = 'field-msg'; m.setAttribute('role', 'alert'); m.textContent = pr[1];
+    m.id = 'err-' + (el.id || Math.random().toString(36).slice(2));
+    el.insertAdjacentElement('afterend', m);
+    el.setAttribute('aria-describedby', m.id);
+    var clear = function() { clearFieldError(el); el.removeEventListener('input', clear); el.removeEventListener('change', clear); };
+    el.addEventListener('input', clear); el.addEventListener('change', clear);
+    if (i === 0) { el.scrollIntoView({ block: 'center' }); el.focus({ preventScroll: true }); }
+  });
+}
+function fieldError(el, msg) { fieldErrors([[el, msg]]); }
+function clearFieldError(el) {
+  el.removeAttribute('aria-invalid'); el.removeAttribute('aria-describedby');
+  var n = el.nextElementSibling;
+  if (n && n.classList.contains('field-msg')) n.remove();
 }
 
 // loadError(container, msg, retry): inline error with a Retry button.

@@ -21,15 +21,16 @@ func (h *Handler) HandleExpiryList(w http.ResponseWriter, r *http.Request) {
 	if pageSize > 200 {
 		pageSize = 200
 	}
-	items, total, err := db.GetExpiryList(dbConn, page-1, pageSize)
+	q := r.URL.Query()
+	res, err := db.GetExpiryList(dbConn, page-1, pageSize, q.Get("band"), q.Get("q"))
 	if err != nil {
 		h.ServerError(w, r, err)
 		return
 	}
-	totalPages := max(1, (total+pageSize-1)/pageSize)
+	totalPages := max(1, (res.Total+pageSize-1)/pageSize)
 	h.JSON(w, 200, map[string]any{
-		"items": items, "currentPage": page, "totalPages": totalPages, "totalItems": total,
-		"hasPrev": page > 1, "hasNext": page < totalPages,
+		"items": res.Items, "currentPage": page, "totalPages": totalPages, "totalItems": res.Total,
+		"hasPrev": page > 1, "hasNext": page < totalPages, "counts": res.Counts,
 	})
 }
 
