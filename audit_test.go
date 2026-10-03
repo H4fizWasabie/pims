@@ -390,8 +390,8 @@ func TestFrontendEscapesUserText(t *testing.T) {
 	}
 	raw := regexp.MustCompile(`\$\{(item|i)\.(itemName|stockId|uom|batch|requester|reqId|justification|name|expiry|label)\}|'\s*\+\s*(u|r)\.(email|itemName|department|prfNo|location|uom)\s*\+\s*'`)
 	for n, line := range strings.Split(string(html), "\n") {
-		if strings.Contains(line, ".value =") {
-			continue // form fields take text, not HTML
+		if strings.Contains(line, ".value =") || strings.Contains(line, "toast(") {
+			continue // form fields and toast() take text (textContent), not HTML
 		}
 		if raw.MatchString(line) {
 			t.Errorf("index.html:%d interpolates unescaped text: %s", n+1, strings.TrimSpace(line))
@@ -400,4 +400,43 @@ func TestFrontendEscapesUserText(t *testing.T) {
 	if strings.Contains(string(html), "_addCustom('${") {
 		t.Error("custom-item onclick still splices user text into inline JS")
 	}
+}
+
+func TestOrderSubmissionTokenReplays(t *testing.T) {
+	ts := newTestServer(t)
+	defer ts.Close()
+	defer ts.db.Close()
+	cookie := ts.adminCookie(t)
+
+	dept, token := uniq("Dept"), uniq("tok")
+	body := mustJSON(t, map[string]any{"department": dept, "submissionToken": token,
+		"items": []map[string]any{{"itemName": "I", "uom": "pc", "cost": 1, "qty": 2}}})
+
+	// Six concurrent sends of the same order (a double-click / flaky retry).
+	var wg sync.WaitGroup
+	prfs := make([]string, 6)
+	for i := range prfs {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resp := ts.post("/api/order/generate", body, cookie)
+			prfs[i], _ = decodeMap(resp)["prfNo"].(string)
+		}()
+	}
+	wg.Wait()
+	for _, p := range prfs {
+		if p == "" || p != prfs[0] {
+			t.Fatalf("replays must all return the first PRF number, got %v", prfs)
+		}
+	}
+	var rows int
+	ts.db.QueryRow(`SELECT COUNT(*) FROM orders WHERE department = $1`, dept).Scan(&rows)
+	if rows != 1 {
+		t.Errorf("%d order rows, want 1", rows)
+	}
+
+	// Same token, different cart: refuse rather than silently dropping the change.
+	other := mustJSON(t, map[string]any{"department": dept, "submissionToken": token,
+		"items": []map[string]any{{"itemName": "I", "uom": "pc", "cost": 1, "qty": 9}}})
+	assertStatus(t, ts.post("/api/order/generate", other, cookie), 409)
 }
