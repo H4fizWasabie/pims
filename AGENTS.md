@@ -48,7 +48,7 @@ GitHub Actions on push: `go vet ./...` + `go test ./...`
 
 ## production / deploy
 
-Production runs on the user's VPS. Reach it with `ssh vps` (host `vultr`, Tailscale IP 100.101.53.98).
+Production runs on the user's VPS. Reach it with `ssh vps` (Contabo Singapore, public IP 13.140.65.183, Tailscale IP 100.114.166.116).
 
 - Live URL: https://pims.wasabietech.com (Caddy terminates TLS, proxies to `127.0.0.1:8083`)
 - Service: `pims.service` (runs as user `pims`); logs: `sudo journalctl -u pims`
