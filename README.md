@@ -58,7 +58,7 @@ export MASTER_ADMINS='you@example.com'       # who may use admin screens
 go run .
 ```
 
-PIMS applies its PostgreSQL migrations automatically at startup and listens on `http://localhost:8083` by default. The default port can be changed with `PORT`.
+PIMS applies its PostgreSQL migrations automatically at startup and listens on `http://127.0.0.1:8083` (loopback only; put a reverse proxy in front for outside access). The default port can be changed with `PORT`.
 
 No default account is created. Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` for the first start (ignored if that user already exists), then add the email to `MASTER_ADMINS`. Older installs may still have the previously seeded `admin@pims.local` / `admin123`; PIMS logs a warning at startup while it exists, so change its password or delete it.
 

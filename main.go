@@ -71,7 +71,8 @@ func main() {
 
 	mux := h.Routes()
 
-	addr := ":" + cfg.Port
+	// Loopback only: Caddy on the same host is the sole client.
+	addr := "127.0.0.1:" + cfg.Port
 	log.Printf("PIMS starting on %s", addr)
 	srv := &http.Server{
 		Addr:              addr,
